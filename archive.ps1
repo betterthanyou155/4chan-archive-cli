@@ -36,14 +36,36 @@ $imageBase = "https://i.4cdn.org/$board"
 $archiveRoot = Join-Path $PSScriptRoot "archives"
 $threadDir = Join-Path $archiveRoot "${board}_${threadId}"
 $imgDir = Join-Path $threadDir "images"
+$isUpdate = $false
 
 if (Test-Path $threadDir) {
     Write-Host "Thread already archived at: $threadDir" -ForegroundColor Yellow
-    Write-Host "Delete it first if you want to re-archive."
-    exit 0
+    $reply = Read-Host "Update with new posts? (Y/n)"
+    if ($reply -match '^(n|no)$') {
+        Write-Host "Aborted."
+        exit 0
+    }
+    $isUpdate = $true
 }
 
 New-Item -ItemType Directory -Path $imgDir -Force | Out-Null
+
+# --- Load existing post IDs for efficient updating ---
+$existingPostIds = @{}
+if ($isUpdate) {
+    $savedJsonPath = Join-Path $threadDir "thread.json"
+    if (Test-Path $savedJsonPath) {
+        try {
+            $savedThread = (Get-Content $savedJsonPath -Raw | ConvertFrom-Json)
+            foreach ($p in $savedThread.posts) {
+                $existingPostIds[$p.no] = $true
+            }
+            Write-Host "  Loaded $($existingPostIds.Count) existing posts from cache" -ForegroundColor DarkGray
+        } catch {
+            Write-Host "  Could not read cached thread.json, will re-download all" -ForegroundColor Yellow
+        }
+    }
+}
 
 # --- Fetch thread JSON ---
 Write-Host "Fetching thread /$board/$threadId ..." -ForegroundColor Cyan
@@ -52,7 +74,9 @@ try {
     $thread = $response.Content | ConvertFrom-Json
 } catch {
     Write-Host "ERROR: Failed to fetch thread. It may not exist or has been deleted." -ForegroundColor Red
-    Remove-Item -Recurse -Force $threadDir
+    if (-not $isUpdate) {
+        Remove-Item -Recurse -Force $threadDir
+    }
     exit 1
 }
 
@@ -66,29 +90,40 @@ $imageCount = 0
 $failedImages = @()
 
 # Collect all download tasks (full image + thumbnail per post)
+$newPostCount = 0
 $tasks = [System.Collections.ArrayList]::new()
 foreach ($post in $posts) {
+    $isNew = -not $existingPostIds.ContainsKey($post.no)
     if ($post.tim -and $post.ext -and -not $post.filedeleted) {
         $filename = "$($post.tim)$($post.ext)"
         $thumbFilename = "$($post.tim)s.jpg"
-        [void]$tasks.Add(@{
-            Url  = "$imageBase/$filename"
-            Dest = Join-Path $imgDir $filename
-            Name = $filename
-            Type = "image"
-        })
-        [void]$tasks.Add(@{
-            Url  = "$imageBase/$thumbFilename"
-            Dest = Join-Path $imgDir $thumbFilename
-            Name = $thumbFilename
-            Type = "thumb"
-        })
+
+        # Only queue downloads for new posts or missing files
+        if ($isNew -or -not (Test-Path (Join-Path $imgDir $filename))) {
+            [void]$tasks.Add(@{
+                Url  = "$imageBase/$filename"
+                Dest = Join-Path $imgDir $filename
+                Name = $filename
+                Type = "image"
+            })
+            [void]$tasks.Add(@{
+                Url  = "$imageBase/$thumbFilename"
+                Dest = Join-Path $imgDir $thumbFilename
+                Name = $thumbFilename
+                Type = "thumb"
+            })
+        }
     }
+    if ($isNew) { $newPostCount++ }
 }
 
 # Skip already-downloaded files
 $pending = $tasks | Where-Object { -not (Test-Path $_.Dest) }
 $skipped = $tasks.Count - $pending.Count
+
+if ($isUpdate) {
+    Write-Host "  $newPostCount new post(s) found" -ForegroundColor Cyan
+}
 
 if ($skipped -gt 0) {
     Write-Host "  Skipping $skipped already-downloaded files" -ForegroundColor DarkGray
@@ -583,17 +618,25 @@ document.addEventListener('click', function(e) {
 </html>
 "@
 
+# --- Save thread JSON for future updates ---
+$jsonPath = Join-Path $threadDir "thread.json"
+$response.Content | Out-File -FilePath $jsonPath -Encoding UTF8
+
 # --- Write HTML file ---
 $htmlPath = Join-Path $threadDir "thread.html"
 $htmlContent | Out-File -FilePath $htmlPath -Encoding UTF8
 
 # --- Summary ---
 Write-Host "`n========================================" -ForegroundColor Green
-Write-Host " Archive complete!" -ForegroundColor Green
+if ($isUpdate) {
+    Write-Host " Update complete! ($newPostCount new posts)" -ForegroundColor Green
+} else {
+    Write-Host " Archive complete!" -ForegroundColor Green
+}
 Write-Host "========================================" -ForegroundColor Green
 Write-Host " Location: $threadDir" -ForegroundColor White
 Write-Host " HTML:     thread.html" -ForegroundColor White
-Write-Host " Images:   $($posts | Where-Object { $_.tim -and -not $_.filedeleted } | Measure-Object | Select-Object -ExpandProperty Count) files in images/" -ForegroundColor White
+Write-Host " Images:   $($posts | Where-Object { $_.tim -and -not $_.filedeleted } | Measure-Object | Select-Object -ExpandProperty Count) total files in images/" -ForegroundColor White
 
 if ($failedImages.Count -gt 0) {
     Write-Host "`n Failed downloads:" -ForegroundColor Yellow
