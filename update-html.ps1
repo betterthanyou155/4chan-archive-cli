@@ -350,8 +350,9 @@ foreach ($folder in $folders) {
   }
   .post-image.expanded img,
   .post-image.expanded video {
-    max-width: none;
-    max-height: none;
+    max-width: 90vw;
+    max-height: 80vh;
+    height: auto;
     cursor: nwse-resize;
   }
   body.is-resizing * {
@@ -446,6 +447,7 @@ foreach ($folder in $folders) {
       <!-- Dynamic update button removed at user request:
       <button class="layout-btn update-btn" onclick="updateThreadDynamic()" id="btn-update" title="Fetch new posts from 4chan API (dynamic update)">Update</button>
       -->
+      <button class="layout-btn" onclick="toggleExpandAll()" id="btn-expand-all" title="Expand/Collapse all static images inline">Expand Images</button>
       <span>Layout:</span>
       <button class="layout-btn active" onclick="setLayout('list')" id="btn-list">List</button>
       <button class="layout-btn" onclick="setLayout('grid')" id="btn-grid">Grid</button>
@@ -709,6 +711,54 @@ foreach ($folder in $folders) {
     }
   };
 
+  window.toggleExpandAll = function() {
+    var buttons = document.querySelectorAll('.expand-btn');
+    var anyCollapsed = false;
+    
+    // Check if there is any static image that is currently collapsed
+    for (var i = 0; i < buttons.length; i++) {
+      var btn = buttons[i];
+      var post = btn.closest('.op, .reply');
+      var imgDiv = post.querySelector('.post-image');
+      if (!imgDiv) continue;
+      var aLink = imgDiv.querySelector('a');
+      var fullSrc = aLink.getAttribute('href') || aLink.getAttribute('data-href');
+      
+      if (fullSrc && !fullSrc.match(/\.(webm|mp4)$/i)) {
+        if (!imgDiv.classList.contains('expanded')) {
+          anyCollapsed = true;
+          break;
+        }
+      }
+    }
+    
+    var targetState = anyCollapsed; // true to expand, false to collapse
+    
+    for (var i = 0; i < buttons.length; i++) {
+      var btn = buttons[i];
+      var post = btn.closest('.op, .reply');
+      var imgDiv = post.querySelector('.post-image');
+      if (!imgDiv) continue;
+      var aLink = imgDiv.querySelector('a');
+      var fullSrc = aLink.getAttribute('href') || aLink.getAttribute('data-href');
+      
+      if (fullSrc && !fullSrc.match(/\.(webm|mp4)$/i)) {
+        var isExpanded = imgDiv.classList.contains('expanded');
+        if (targetState && !isExpanded) {
+          toggleExpand(btn);
+        } else if (!targetState && isExpanded) {
+          toggleExpand(btn);
+        }
+      }
+    }
+    
+    var btnAll = document.getElementById('btn-expand-all');
+    if (btnAll) {
+      btnAll.textContent = targetState ? 'Collapse Images' : 'Expand Images';
+      btnAll.classList.toggle('active', targetState);
+    }
+  };
+
   // --- High-Performance Drag-to-resize on expanded images using requestAnimationFrame ---
   document.addEventListener('mousedown', function(e) {
     var imgDiv = e.target.closest('.post-image.expanded');
@@ -721,6 +771,9 @@ foreach ($folder in $folders) {
     var startW = img.offsetWidth;
     var currentX = e.clientX;
     var ticking = false;
+    
+    var aspect = (img.naturalWidth || img.videoWidth || img.offsetWidth || 1) / (img.naturalHeight || img.videoHeight || img.offsetHeight || 1);
+    var maxW = Math.min(window.innerWidth * 0.9, aspect * (window.innerHeight * 0.8));
 
     function onMove(ev) {
       currentX = ev.clientX;
@@ -732,7 +785,7 @@ foreach ($folder in $folders) {
 
     function updateResize() {
       var multiplier = Math.max(1, startW / 200);
-      img.style.width = Math.max(50, startW + (currentX - startX) * multiplier) + 'px';
+      img.style.width = Math.min(maxW, Math.max(50, startW + (currentX - startX) * multiplier)) + 'px';
       ticking = false;
     }
 
