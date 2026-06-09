@@ -403,6 +403,23 @@ foreach ($folder in $folders) {
   }
   .image-full img { max-width: 95vw; max-height: 95vh; object-fit: contain; }
   .image-full.active { display: flex; }
+  .overlay-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 40px;
+    font-weight: bold;
+    color: #fff;
+    cursor: pointer;
+    z-index: 10000;
+    transition: color 0.15s ease, transform 0.15s ease;
+    user-select: none;
+    line-height: 1;
+  }
+  .overlay-close:hover {
+    color: #ff3333;
+    transform: scale(1.1);
+  }
 
   .post-preview {
     position: absolute;
@@ -604,11 +621,7 @@ foreach ($folder in $folders) {
     return src.match(/\.(webm|mp4)$/i);
   }
 
-  window.closeOverlay = function(e) {
-    // If the click is directly on the video or image itself, do not close the overlay
-    if (e && e.target && (e.target.tagName === 'VIDEO' || e.target.tagName === 'IMG')) {
-      return;
-    }
+  window.closeOverlay = function() {
     var overlay = document.getElementById('imageOverlay');
     overlay.classList.remove('active');
     overlay.innerHTML = ''; // Stop video playback and release resource
@@ -620,14 +633,26 @@ foreach ($folder in $folders) {
     var overlay = document.getElementById('imageOverlay');
     overlay.innerHTML = ''; // Clear previous contents
     
+    // Create and append close button
+    var closeBtn = document.createElement('span');
+    closeBtn.className = 'overlay-close';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.title = 'Close overlay (Esc)';
+    closeBtn.onclick = function(ev) {
+      ev.stopPropagation();
+      closeOverlay();
+    };
+    overlay.appendChild(closeBtn);
+    
     if (isVideo(src)) {
       var video = document.createElement('video');
       video.src = src;
       video.controls = true;
       video.autoplay = true;
       video.loop = true;
-      video.style.maxWidth = '100vw';
-      video.style.maxHeight = '100vh';
+      video.style.maxWidth = '95vw';
+      video.style.maxHeight = '95vh';
+      video.style.objectFit = 'contain';
       // Prevent clicks on the video player/controls from closing the overlay
       video.onclick = function(ev) {
         ev.stopPropagation();
@@ -638,6 +663,9 @@ foreach ($folder in $folders) {
       img.src = src;
       img.alt = 'Full size';
       img.id = 'fullImg';
+      img.style.maxWidth = '95vw';
+      img.style.maxHeight = '95vh';
+      img.style.objectFit = 'contain';
       overlay.appendChild(img);
     }
     
