@@ -638,8 +638,9 @@ $htmlContent += @"
     setLayout(saved);
   })();
 
-  // --- Full-size overlay ---
+  // --- Full-size overlay (only for thumbnails, not expanded) ---
   window.showFullImage = function(el, src) {
+    if (el.closest('.post-image.expanded')) return false;
     document.getElementById('fullImg').src = src;
     document.getElementById('imageOverlay').classList.add('active');
     return false;
@@ -676,55 +677,19 @@ $htmlContent += @"
     }
   };
 
-  // --- Drag-to-resize on expanded images ---
+  // --- Drag-to-resize on expanded images (from anywhere) ---
   document.addEventListener('mousedown', function(e) {
-    var handle = e.target.closest('.resize-handle');
-    if (!handle) return;
-    var imgDiv = handle.closest('.post-image');
-    if (!imgDiv || !imgDiv.classList.contains('expanded')) return;
+    var imgDiv = e.target.closest('.post-image.expanded');
+    if (!imgDiv) return;
     var img = imgDiv.querySelector('img');
-    if (!img) return;
+    if (!img || e.target !== img) return;
 
     e.preventDefault();
     var startX = e.clientX;
     var startW = img.offsetWidth;
 
     function onMove(ev) {
-      var delta = ev.clientX - startX;
-      var newW = Math.max(50, startW + delta);
-      img.style.width = newW + 'px';
-    }
-    function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    }
-
-    document.body.style.cursor = 'nwse-resize';
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  });
-
-  // Also allow dragging from the image itself when expanded
-  document.addEventListener('mousedown', function(e) {
-    var img = e.target;
-    if (!img.matches('.post-image.expanded img')) return;
-    // Only right area (bottom-right quadrant) to not conflict with overlay click
-    var rect = img.getBoundingClientRect();
-    var relX = e.clientX - rect.left;
-    var relY = e.clientY - rect.top;
-    if (relX < rect.width * 0.7 || relY < rect.height * 0.7) return;
-
-    e.preventDefault();
-    var startX = e.clientX;
-    var startW = img.offsetWidth;
-
-    function onMove(ev) {
-      var delta = ev.clientX - startX;
-      var newW = Math.max(50, startW + delta);
-      img.style.width = newW + 'px';
+      img.style.width = Math.max(50, startW + ev.clientX - startX) + 'px';
     }
     function onUp() {
       document.removeEventListener('mousemove', onMove);
