@@ -138,6 +138,21 @@ foreach ($folder in $folders) {
     color: #880;
   }
 
+  .update-btn {
+    background: #E0F0E0;
+    border: 1px solid #A0C0A0;
+    color: #106030;
+    font-weight: bold;
+    margin-right: 12px;
+  }
+  .update-btn:hover { background: #D0E8D0; }
+  .update-btn:disabled { background: #E8E8E8; border-color: #C8C8C8; color: #888; cursor: not-allowed; }
+  .archive-notice.temp-notice {
+    background: #E0FFE0;
+    border: 1px solid #A0D0A0;
+    color: #106030;
+  }
+
   .container {
     max-width: 960px;
     margin: 0 auto;
@@ -410,6 +425,7 @@ foreach ($folder in $folders) {
 <div class="board-banner">
   <span class="board-label">$boardTitle</span>
   <div class="layout-toggle">
+    <button class="layout-btn update-btn" onclick="updateThreadDynamic()" id="btn-update" title="Fetch new posts from 4chan API (dynamic update)">Update</button>
     <span>Layout:</span>
     <button class="layout-btn active" onclick="setLayout('list')" id="btn-list">List</button>
     <button class="layout-btn" onclick="setLayout('grid')" id="btn-grid">Grid</button>
@@ -424,7 +440,7 @@ foreach ($folder in $folders) {
   &mdash; All images stored locally
 </div>
 
-<div class="thread">
+<div class="thread" data-board="$board" data-thread-id="$threadId">
 
 "@
 
@@ -596,26 +612,243 @@ foreach ($folder in $folders) {
     }
   };
 
+  // --- High-Performance Drag-to-resize on expanded images using requestAnimationFrame ---
   document.addEventListener('mousedown', function(e) {
     var imgDiv = e.target.closest('.post-image.expanded');
     if (!imgDiv) return;
     var img = imgDiv.querySelector('img');
     if (!img || e.target !== img) return;
+
     e.preventDefault();
     var startX = e.clientX;
     var startW = img.offsetWidth;
-    function onMove(ev) { img.style.width = Math.max(50, startW + ev.clientX - startX) + 'px'; }
+    var currentX = e.clientX;
+    var ticking = false;
+
+    function onMove(ev) {
+      currentX = ev.clientX;
+      if (!ticking) {
+        window.requestAnimationFrame(updateResize);
+        ticking = true;
+      }
+    }
+
+    function updateResize() {
+      img.style.width = Math.max(50, startW + currentX - startX) + 'px';
+      ticking = false;
+    }
+
     function onUp() {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     }
+
     document.body.style.cursor = 'nwse-resize';
     document.body.style.userSelect = 'none';
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   });
+
+  // --- Dynamic Thread Updates via 4chan API ---
+  function escapeHtmlJs(text) {
+    if (!text) return "";
+    return text.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function convertCommentJs(com) {
+    if (!com) return "";
+    com = com.replace(/<wbr>/g, '');
+    var lines = com.split(/<br\s*\/?>/i);
+    var processed = lines.map(function(line) {
+      var trimmed = line.trim();
+      if (trimmed.indexOf('&gt;') === 0 && trimmed.indexOf('&gt;&gt;') !== 0) {
+        return '<span class="greentext">' + line + '</span>';
+      }
+      return line;
+    });
+    return processed.join('<br>');
+  }
+
+  function rebuildBacklinks() {
+    var existingBacklinks = document.querySelectorAll('.backlink');
+    existingBacklinks.forEach(function(el) { el.remove(); });
+
+    var backlinksMap = {};
+    var posts = document.querySelectorAll('.op, .reply');
+    posts.forEach(function(post) {
+      var postId = post.getAttribute('data-postno');
+      var msgEl = post.querySelector('.post-message');
+      if (!msgEl) return;
+      var quotes = msgEl.querySelectorAll('.quotelink');
+      quotes.forEach(function(quote) {
+        var href = quote.getAttribute('href');
+        if (!href || href.charAt(0) !== '#') return;
+        var targetId = href.substring(2); // Skip '#p'
+        if (!backlinksMap[targetId]) {
+          backlinksMap[targetId] = [];
+        }
+        if (backlinksMap[targetId].indexOf(postId) === -1) {
+          backlinksMap[targetId].push(postId);
+        }
+      });
+    });
+
+    Object.keys(backlinksMap).forEach(function(targetId) {
+      var targetPost = document.getElementById('p' + targetId);
+      if (!targetPost) return;
+      var infoEl = targetPost.querySelector('.post-info');
+      if (!infoEl) return;
+
+      var span = document.createElement('span');
+      span.className = 'backlink';
+      backlinksMap[targetId].forEach(function(quotingId) {
+        var a = document.createElement('a');
+        a.className = 'quotelink';
+        a.href = '#p' + quotingId;
+        a.textContent = '>>' + quotingId;
+        span.appendChild(a);
+      });
+      infoEl.appendChild(span);
+    });
+  }
+
+  window.updateThreadDynamic = function() {
+    var btn = document.getElementById('btn-update');
+    if (btn.disabled) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Updating...';
+
+    var threadEl = document.querySelector('.thread');
+    var board = threadEl.getAttribute('data-board');
+    var threadId = threadEl.getAttribute('data-thread-id');
+    var apiUrl = 'https://a.4cdn.org/' + board + '/thread/' + threadId + '.json';
+
+    function showUpdateError(msg) {
+      btn.textContent = 'Error: ' + msg;
+      btn.style.background = '#FFD0D0';
+      btn.style.borderColor = '#C0A0A0';
+      btn.style.color = '#800000';
+      setTimeout(function() {
+        btn.disabled = false;
+        btn.textContent = 'Update';
+        btn.style.background = '';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+      }, 4000);
+    }
+
+    fetch(apiUrl)
+      .then(function(res) {
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error('Thread deleted (404)');
+          }
+          throw new Error('HTTP ' + res.status);
+        }
+        return res.json();
+      })
+      .then(function(data) {
+        var posts = data.posts;
+        var newPostCount = 0;
+        var addedHtml = '';
+
+        posts.forEach(function(post) {
+          if (document.getElementById('p' + post.no)) return;
+
+          newPostCount++;
+          var html = '';
+          html += '<div class="reply" id="p' + post.no + '" data-postno="' + post.no + '">';
+          html += '  <div class="post-info">';
+          if (post.sub) html += '<span class="post-subject">' + escapeHtmlJs(post.sub) + '</span> ';
+          html += '<span class="post-name">' + escapeHtmlJs(post.name) + '</span> ';
+          if (post.trip) html += '<span class="post-trip">' + escapeHtmlJs(post.trip) + '</span> ';
+          if (post.capcode) {
+            var capLabel = '## ' + post.capcode;
+            if (post.capcode === 'admin') capLabel = '## Admin';
+            else if (post.capcode === 'mod') capLabel = '## Mod';
+            html += '<span class="capcode">' + capLabel + '</span> ';
+          }
+          html += '<span class="post-date">' + escapeHtmlJs(post.now) + '</span> ';
+          html += '<a class="post-number" href="#p' + post.no + '">No.' + post.no + '</a>';
+          html += ' <a class="post-reply-link" href="#p' + post.resto + '">&#9658;' + post.resto + '</a>';
+          html += '</div>';
+
+          if (post.tim && post.ext && !post.filedeleted) {
+            var filename = post.tim + post.ext;
+            var origName = post.filename ? (post.filename + post.ext) : filename;
+            var fsizeKB = Math.round(post.fsize / 102.4) / 10;
+            var fsizeStr = fsizeKB >= 1024 ? (Math.round(fsizeKB / 10.24) / 100 + ' MB') : (fsizeKB + ' KB');
+            var fullSrc = 'https://i.4cdn.org/' + board + '/' + filename;
+            var thumbSrc = 'https://i.4cdn.org/' + board + '/' + post.tim + 's.jpg';
+
+            html += '  <div class="file-info">';
+            html += '    File: <a href="' + fullSrc + '" target="_blank">' + escapeHtmlJs(origName) + '</a>';
+            html += '    (' + post.w + 'x' + post.h + ', ' + fsizeStr + ')';
+            html += '    <span class="expand-btn" onclick="toggleExpand(this)" title="Expand image inline">+</span>';
+            html += '  </div>';
+            html += '  <div class="post-image">';
+            html += '    <a href="' + fullSrc + '" target="_blank">';
+            html += '      <img src="' + thumbSrc + '" alt="' + escapeHtmlJs(origName) + '" loading="lazy" onclick="return showFullImage(this, \'' + fullSrc + '\')">';
+            html += '    </a>';
+            html += '    <div class="resize-handle" title="Drag to resize"></div>';
+            html += '  </div>';
+          }
+
+          if (post.filedeleted) {
+            html += '  <div class="file-deleted">[File deleted]</div>';
+          }
+
+          if (post.com) {
+            html += '  <div class="post-message">' + convertCommentJs(post.com) + '</div>';
+          }
+          html += '</div>';
+          addedHtml += html;
+        });
+
+        if (newPostCount > 0) {
+          // Append new replies
+          var tempDiv = document.createElement('div');
+          tempDiv.innerHTML = addedHtml;
+          while (tempDiv.firstChild) {
+            threadEl.appendChild(tempDiv.firstChild);
+          }
+
+          // Rebuild backlinks list across all posts
+          rebuildBacklinks();
+
+          // Show temp notification banner at top
+          var existingTempNotice = document.querySelector('.temp-notice');
+          if (existingTempNotice) existingTempNotice.remove();
+
+          var notice = document.createElement('div');
+          notice.className = 'archive-notice temp-notice';
+          notice.textContent = newPostCount + ' new post(s) dynamically loaded from 4chan CDN. These updates are temporary; run the archive update script to save them permanently to disk.';
+          document.querySelector('.container').insertBefore(notice, document.querySelector('.thread'));
+          
+          // Smooth scroll to first new post
+          var firstNewPostId = posts[posts.length - newPostCount].no;
+          var firstNewPost = document.getElementById('p' + firstNewPostId);
+          if (firstNewPost) {
+            firstNewPost.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            firstNewPost.classList.add('post-highlight');
+            setTimeout(function() { firstNewPost.classList.remove('post-highlight'); }, 2000);
+          }
+        }
+
+        // Reset button
+        btn.disabled = false;
+        btn.textContent = 'Update';
+        btn.style.background = '';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+      })
+      .catch(function(err) {
+        showUpdateError(err.message === 'Failed to fetch' ? 'Network error' : err.message);
+      });
+  };
 
   var previewEl = document.getElementById('postPreview');
   var previewTimer = null;
