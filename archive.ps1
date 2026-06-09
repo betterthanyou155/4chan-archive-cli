@@ -264,7 +264,6 @@ $htmlContent = @"
   a { color: #FF0000; text-decoration: none; }
   a:hover { text-decoration: underline; }
 
-  /* --- Board title bar --- */
   .board-banner {
     background: #EEF2FF;
     border-bottom: 1px solid #D6DAF0;
@@ -277,68 +276,38 @@ $htmlContent = @"
   .board-banner a { color: #AF0A0F; }
   .board-banner .board-label { font-weight: bold; font-size: 13px; }
 
-  /* --- Archive notice --- */
   .archive-notice {
     background: #FFFFDD;
     border: 1px solid #DD8;
     padding: 6px 10px;
-    margin: 0 0 10px 0;
+    margin: 0 0 6px 0;
     font-size: 11px;
     text-align: center;
     color: #880;
   }
 
-  /* --- Container --- */
   .container {
     max-width: 900px;
     margin: 0 auto;
     padding: 0 10px;
   }
 
-  /* --- OP post --- */
-  .op-container {
-    margin-bottom: 2px;
-  }
+  /* --- Single thread flow --- */
+  .thread { margin-bottom: 20px; }
 
+  /* --- OP --- */
   .op {
     background: #F0E0D0;
     border: 1px solid #D9BFB7;
     padding: 5px 10px;
     overflow: hidden;
-  }
-
-  .op .post-info {
-    margin-bottom: 2px;
-  }
-
-  .op .file-info {
     margin-bottom: 4px;
   }
+  .op .post-image { float: left; margin: 4px 20px 10px 0; }
+  .op .post-image img { max-width: 400px; max-height: 400px; border: 0; cursor: pointer; }
+  .op .post-message { overflow: hidden; }
 
-  .op .post-image {
-    float: left;
-    margin: 4px 20px 10px 0;
-  }
-
-  .op .post-image img {
-    max-width: 400px;
-    max-height: 400px;
-    border: 0;
-    cursor: pointer;
-  }
-
-  .op .post-message {
-    overflow: hidden;
-  }
-
-  /* --- Thread replies area --- */
-  .thread-replies {
-    border-left: 0;
-    margin: 0 0 10px 0;
-    padding: 0 0 0 20px;
-  }
-
-  /* --- Reply post --- */
+  /* --- Reply --- */
   .reply {
     background: #F0E0D0;
     border: 1px solid #D9BFB7;
@@ -349,74 +318,41 @@ $htmlContent = @"
     padding: 5px 8px;
     overflow: hidden;
   }
+  .reply .post-image { float: left; margin: 4px 15px 4px 0; }
+  .reply .post-image img { max-width: 250px; max-height: 250px; border: 0; cursor: pointer; }
 
-  .reply .post-image {
-    float: left;
-    margin: 4px 15px 4px 0;
-  }
-
-  .reply .post-image img {
-    max-width: 250px;
-    max-height: 250px;
-    border: 0;
-    cursor: pointer;
-  }
-
-  /* --- Post info line --- */
-  .post-info {
-    font-size: 13px;
-    white-space: nowrap;
-  }
-
-  .post-subject {
-    color: #0F0C5D;
-    font-weight: bold;
-  }
-
-  .post-name {
-    color: #117743;
-    font-weight: bold;
-  }
-
-  .post-trip {
-    color: #228854;
-  }
-
-  .post-id {
-    padding: 0 2px;
-    cursor: pointer;
-  }
-
-  .post-date {
-    color: #106030;
-    font-size: 12px;
-  }
-
-  .post-number {
-    color: #800000;
-    font-size: 12px;
-    cursor: pointer;
-  }
+  /* --- Post info --- */
+  .post-info { font-size: 13px; white-space: nowrap; margin-bottom: 2px; }
+  .post-subject { color: #0F0C5D; font-weight: bold; }
+  .post-name { color: #117743; font-weight: bold; }
+  .post-trip { color: #228854; }
+  .post-date { color: #106030; font-size: 12px; }
+  .post-number { color: #800000; font-size: 12px; cursor: pointer; }
   .post-number:hover { color: #D00; }
-
-  .post-reply-link {
-    color: #800000;
-    font-size: 12px;
-    margin-left: 2px;
-  }
-
-  .capcode {
-    color: #F0A;
-    font-weight: bold;
-  }
+  .post-reply-link { color: #800000; font-size: 12px; margin-left: 2px; }
+  .post-reply-link:hover { color: #D00; }
+  .capcode { color: #F0A; font-weight: bold; }
 
   /* --- File info --- */
-  .file-info {
+  .file-info { color: #707070; font-size: 11px; margin-bottom: 2px; }
+  .file-info a { color: #707070; }
+
+  .expand-btn {
+    display: inline-block;
     color: #707070;
     font-size: 11px;
-    margin-bottom: 2px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 3px;
+    padding: 0 3px;
+    border: 1px solid #B8B8B8;
+    border-radius: 2px;
+    background: #F5F5F0;
+    line-height: 14px;
+    vertical-align: middle;
+    user-select: none;
   }
-  .file-info a { color: #707070; }
+  .expand-btn:hover { background: #E8E8E0; color: #555; }
 
   /* --- Post message --- */
   .post-message {
@@ -426,48 +362,35 @@ $htmlContent = @"
     font-size: 13px;
     line-height: 1.5;
   }
-
-  .post-message .quotelink {
-    color: #D00;
-    text-decoration: none;
-  }
+  .post-message .quotelink { color: #D00; text-decoration: none; cursor: pointer; }
   .post-message .quotelink:hover { text-decoration: underline; }
-
-  .post-message .greentext {
-    color: #789922;
-  }
-
-  .post-message .deadlink {
-    color: #999;
-    text-decoration: line-through;
-  }
-
+  .post-message .greentext { color: #789922; }
+  .post-message .deadlink { color: #999; text-decoration: line-through; }
   .post-message br + br { margin-top: 0.4em; }
 
-  /* --- Deleted file --- */
-  .file-deleted {
-    color: #707070;
-    font-size: 11px;
-    font-style: italic;
-    margin: 4px 0;
-  }
+  .file-deleted { color: #707070; font-size: 11px; font-style: italic; margin: 4px 0; }
 
-  /* --- Sticky/Closed icons --- */
-  .thread-icons {
-    display: inline-block;
-    margin-left: 6px;
-    vertical-align: middle;
-  }
-  .thread-icons img {
-    vertical-align: middle;
-    margin-right: 2px;
-  }
-
-  /* --- Stats bar --- */
   .thread-stats {
     color: #707070;
     font-size: 11px;
-    margin: 6px 0 0 0;
+    margin: 4px 0;
+    padding: 4px 0;
+    border-top: 1px solid #D9BFB7;
+    border-bottom: 1px solid #D9BFB7;
+  }
+
+  /* --- Inline expanded image --- */
+  .post-image.expanded img {
+    max-width: none;
+    max-height: none;
+  }
+  .reply .post-image.expanded {
+    float: none;
+    margin: 4px 0;
+  }
+  .op .post-image.expanded {
+    float: none;
+    margin: 4px 0 10px 0;
   }
 
   /* --- Full-size overlay --- */
@@ -482,25 +405,42 @@ $htmlContent = @"
     justify-content: center;
     align-items: center;
   }
-  .image-full img {
-    max-width: 95vw;
-    max-height: 95vh;
-    object-fit: contain;
-  }
+  .image-full img { max-width: 95vw; max-height: 95vh; object-fit: contain; }
   .image-full.active { display: flex; }
 
-  /* --- Reply highlight --- */
-  .reply-highlight {
-    background: #D6DAF0 !important;
+  /* --- Hover preview --- */
+  .post-preview {
+    position: absolute;
+    z-index: 9000;
+    background: #F0E0D0;
+    border: 1px solid #D9BFB7;
+    padding: 4px 8px;
+    max-width: 420px;
+    min-width: 200px;
+    font-size: 12px;
+    line-height: 1.4;
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.2);
+    pointer-events: none;
+    overflow: hidden;
   }
+  .post-preview .pv-info { font-size: 11px; margin-bottom: 2px; white-space: nowrap; }
+  .post-preview .pv-info .pv-subject { color: #0F0C5D; font-weight: bold; }
+  .post-preview .pv-info .pv-name { color: #117743; font-weight: bold; }
+  .post-preview .pv-image { float: left; margin: 2px 8px 2px 0; }
+  .post-preview .pv-image img { max-width: 120px; max-height: 120px; }
+  .post-preview .pv-msg { overflow: hidden; font-size: 12px; color: #800000; word-wrap: break-word; max-height: 200px; overflow-y: auto; }
+  .post-preview .pv-msg .greentext { color: #789922; }
+  .post-preview .pv-msg .quotelink { color: #D00; }
 
-  /* --- Mobile --- */
+  /* --- Post highlight --- */
+  .post-highlight { background: #D6DAF0 !important; }
+
   @media (max-width: 600px) {
     .container { padding: 0 4px; }
     .op .post-image img { max-width: 85vw; max-height: 50vh; }
     .reply .post-image img { max-width: 60vw; max-height: 40vh; }
-    .thread-replies { padding-left: 8px; }
     .post-info { white-space: normal; }
+    .post-preview { max-width: 80vw; }
   }
 </style>
 </head>
@@ -518,19 +458,17 @@ $htmlContent = @"
   &mdash; All images stored locally
 </div>
 
+<div class="thread">
+
 "@
 
 foreach ($post in $posts) {
     $isOp = ($post.resto -eq 0)
+    $divClass = if ($isOp) { "op" } else { "reply" }
 
-    if ($isOp) {
-        $htmlContent += '<div class="op-container">' + "`n"
-        $htmlContent += '<div class="op" id="p' + $post.no + '">' + "`n"
-    } else {
-        $htmlContent += '<div class="reply" id="p' + $post.no + '">' + "`n"
-    }
+    $htmlContent += '<div class="' + $divClass + '" id="p' + $post.no + '" data-postno="' + $post.no + '">' + "`n"
 
-    # Post info line (comes first on 4chan)
+    # Post info line
     $htmlContent += '  <div class="post-info">'
 
     if ($post.sub) {
@@ -564,7 +502,7 @@ foreach ($post in $posts) {
 
     $htmlContent += '</div>' + "`n"
 
-    # File info and image
+    # File info with expand button
     if ($post.tim -and $post.ext -and -not $post.filedeleted) {
         $filename = "$($post.tim)$($post.ext)"
         $thumbFilename = "$($post.tim)s.jpg"
@@ -576,6 +514,7 @@ foreach ($post in $posts) {
   <div class="file-info">
     File: <a href="images/$filename">$(Escape-Html $origName)</a>
     ($($post.w)x$($post.h), $fsizeStr)
+    <span class="expand-btn" onclick="toggleExpand(this)" title="Expand image inline">+</span>
   </div>
   <div class="post-image">
     <a href="images/$filename">
@@ -598,28 +537,19 @@ foreach ($post in $posts) {
 
     $htmlContent += '</div>' + "`n"
 
-    # Close OP container and open thread replies area after OP
-    if ($isOp) {
-        if ($posts.Count -gt 1) {
-            $htmlContent += '<div class="thread-stats">' + "`n"
-            $stats = @()
-            if ($op.replies) { $stats += "$($op.replies) replies" }
-            if ($op.images) { $stats += "$($op.images) images" }
-            if ($op.archived) { $stats += "ARCHIVED" }
-            $htmlContent += '  ' + ($stats -join ' &mdash; ')
-            $htmlContent += "`n</div>`n"
-            $htmlContent += '</div>' + "`n"
-            $htmlContent += '<div class="thread-replies">' + "`n"
-        } else {
-            $htmlContent += '</div>' + "`n"
-        }
+    # Thread stats after OP
+    if ($isOp -and $posts.Count -gt 1) {
+        $htmlContent += '<div class="thread-stats">' + "`n"
+        $stats = @()
+        if ($op.replies) { $stats += "$($op.replies) replies" }
+        if ($op.images) { $stats += "$($op.images) images" }
+        if ($op.archived) { $stats += "ARCHIVED" }
+        $htmlContent += '  ' + ($stats -join ' &mdash; ')
+        $htmlContent += "`n</div>`n"
     }
 }
 
-# Close thread-replies if it was opened
-if ($posts.Count -gt 1) {
-    $htmlContent += '</div>' + "`n"
-}
+$htmlContent += '</div>' + "`n"  # close .thread
 
 $htmlContent += @"
 
@@ -629,45 +559,146 @@ $htmlContent += @"
   <img id="fullImg" src="" alt="Full size">
 </div>
 
+<div class="post-preview" id="postPreview" style="display:none"></div>
+
 <script>
-// Full-size image overlay
-function showFullImage(el, src) {
-  var overlay = document.getElementById('imageOverlay');
-  document.getElementById('fullImg').src = src;
-  overlay.classList.add('active');
-  return false;
-}
+(function() {
+  // --- Full-size overlay ---
+  window.showFullImage = function(el, src) {
+    document.getElementById('fullImg').src = src;
+    document.getElementById('imageOverlay').classList.add('active');
+    return false;
+  };
 
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    document.getElementById('imageOverlay').classList.remove('active');
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      document.getElementById('imageOverlay').classList.remove('active');
+    }
+  });
+
+  // --- Inline expand (like 4chan [+] button) ---
+  window.toggleExpand = function(btn) {
+    var fileDiv = btn.closest('.file-info');
+    var post = btn.closest('.op, .reply');
+    var imgDiv = post.querySelector('.post-image');
+    if (!imgDiv) return;
+    var img = imgDiv.querySelector('img');
+    if (!img) return;
+    var fullSrc = imgDiv.querySelector('a').getAttribute('href');
+
+    if (imgDiv.classList.contains('expanded')) {
+      imgDiv.classList.remove('expanded');
+      img.src = img.getAttribute('data-thumb');
+      btn.textContent = '+';
+      btn.title = 'Expand image inline';
+    } else {
+      img.setAttribute('data-thumb', img.src);
+      imgDiv.classList.add('expanded');
+      img.src = fullSrc;
+      btn.textContent = '\u2013';
+      btn.title = 'Collapse image';
+    }
+  };
+
+  // --- Hover preview for quote links ---
+  var previewEl = document.getElementById('postPreview');
+  var previewTimer = null;
+
+  document.addEventListener('mouseover', function(e) {
+    var link = e.target.closest('.quotelink');
+    if (!link) return;
+    var href = link.getAttribute('href');
+    if (!href || href.charAt(0) !== '#') return;
+    var target = document.getElementById(href.substring(1));
+    if (!target) return;
+
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(function() {
+      var html = buildPreview(target);
+      previewEl.innerHTML = html;
+      previewEl.style.display = 'block';
+      positionPreview(link);
+    }, 250);
+  });
+
+  document.addEventListener('mouseout', function(e) {
+    var link = e.target.closest('.quotelink');
+    if (!link) return;
+    clearTimeout(previewTimer);
+    previewEl.style.display = 'none';
+  });
+
+  function positionPreview(link) {
+    var rect = link.getBoundingClientRect();
+    var pw = previewEl.offsetWidth;
+    var ph = previewEl.offsetHeight;
+    var left = rect.left + window.scrollX;
+    var top = rect.bottom + window.scrollY + 4;
+
+    if (left + pw > window.innerWidth - 10) {
+      left = window.innerWidth - pw - 10;
+    }
+    if (left < 5) left = 5;
+
+    if (top + ph > window.innerHeight + window.scrollY - 10) {
+      top = rect.top + window.scrollY - ph - 4;
+    }
+
+    previewEl.style.left = left + 'px';
+    previewEl.style.top = top + 'px';
   }
-});
 
-// Highlight post on quote link click
-document.addEventListener('click', function(e) {
-  var link = e.target.closest('a.quotelink');
-  if (!link) return;
-  var href = link.getAttribute('href');
-  if (!href || href.charAt(0) !== '#') return;
-  var target = document.getElementById(href.substring(1));
-  if (!target) return;
-  e.preventDefault();
-  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  target.classList.add('reply-highlight');
-  setTimeout(function() { target.classList.remove('reply-highlight'); }, 2000);
-  history.replaceState(null, '', href);
-});
+  function buildPreview(post) {
+    var info = post.querySelector('.post-info');
+    var imgEl = post.querySelector('.post-image img');
+    var msgEl = post.querySelector('.post-message');
+    var subEl = info ? info.querySelector('.post-subject') : null;
+    var nameEl = info ? info.querySelector('.post-name') : null;
+    var dateEl = info ? info.querySelector('.post-date') : null;
+    var noEl = info ? info.querySelector('.post-number') : null;
 
-// Click post number to highlight
-document.addEventListener('click', function(e) {
-  var num = e.target.closest('.post-number');
-  if (!num) return;
-  var post = num.closest('.op, .reply');
-  if (!post) return;
-  post.classList.add('reply-highlight');
-  setTimeout(function() { post.classList.remove('reply-highlight'); }, 1500);
-});
+    var h = '<div class="pv-info">';
+    if (subEl) h += '<span class="pv-subject">' + subEl.textContent + '</span> ';
+    if (nameEl) h += '<span class="pv-name">' + nameEl.textContent + '</span> ';
+    if (dateEl) h += '<span>' + dateEl.textContent + '</span> ';
+    if (noEl) h += '<span>' + noEl.textContent + '</span>';
+    h += '</div>';
+
+    if (imgEl) {
+      h += '<div class="pv-image"><img src="' + (imgEl.getAttribute('data-thumb') || imgEl.src) + '" alt=""></div>';
+    }
+    if (msgEl) {
+      h += '<div class="pv-msg">' + msgEl.innerHTML + '</div>';
+    }
+    return h;
+  }
+
+  // --- Click quote link: scroll + highlight ---
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('a.quotelink');
+    if (!link) return;
+    var href = link.getAttribute('href');
+    if (!href || href.charAt(0) !== '#') return;
+    var target = document.getElementById(href.substring(1));
+    if (!target) return;
+    e.preventDefault();
+    previewEl.style.display = 'none';
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('post-highlight');
+    setTimeout(function() { target.classList.remove('post-highlight'); }, 2000);
+    history.replaceState(null, '', href);
+  });
+
+  // --- Click post number: highlight ---
+  document.addEventListener('click', function(e) {
+    var num = e.target.closest('.post-number');
+    if (!num) return;
+    var post = num.closest('.op, .reply');
+    if (!post) return;
+    post.classList.add('post-highlight');
+    setTimeout(function() { post.classList.remove('post-highlight'); }, 1500);
+  });
+})();
 </script>
 
 </body>
