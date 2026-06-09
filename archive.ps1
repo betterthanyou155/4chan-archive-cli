@@ -264,6 +264,7 @@ $htmlContent = @"
   a { color: #FF0000; text-decoration: none; }
   a:hover { text-decoration: underline; }
 
+  /* --- Board banner with toggle --- */
   .board-banner {
     background: #EEF2FF;
     border-bottom: 1px solid #D6DAF0;
@@ -272,9 +273,33 @@ $htmlContent = @"
     color: #AF0A0F;
     text-align: center;
     margin-bottom: 8px;
+    position: relative;
   }
   .board-banner a { color: #AF0A0F; }
   .board-banner .board-label { font-weight: bold; font-size: 13px; }
+
+  .layout-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .layout-toggle span { font-size: 10px; color: #666; margin-right: 2px; }
+  .layout-btn {
+    background: #D6DAF0;
+    border: 1px solid #B0B4D0;
+    color: #333;
+    font-size: 11px;
+    padding: 2px 8px;
+    cursor: pointer;
+    border-radius: 2px;
+    user-select: none;
+  }
+  .layout-btn:hover { background: #C0C4E0; }
+  .layout-btn.active { background: #8888CC; color: #fff; border-color: #6666AA; }
 
   .archive-notice {
     background: #FFFFDD;
@@ -287,12 +312,12 @@ $htmlContent = @"
   }
 
   .container {
-    max-width: 900px;
+    max-width: 960px;
     margin: 0 auto;
     padding: 0 10px;
   }
 
-  /* --- Single thread flow --- */
+  /* --- Thread --- */
   .thread { margin-bottom: 20px; }
 
   /* --- OP --- */
@@ -300,7 +325,7 @@ $htmlContent = @"
     background: #F0E0D0;
     border: 1px solid #D9BFB7;
     padding: 5px 10px;
-    overflow: hidden;
+    overflow: visible;
     margin-bottom: 4px;
   }
   .op .post-image { float: left; margin: 4px 20px 10px 0; }
@@ -311,15 +336,22 @@ $htmlContent = @"
   .reply {
     background: #F0E0D0;
     border: 1px solid #D9BFB7;
-    display: inline-block;
+    display: block;
     max-width: 100%;
     vertical-align: top;
     margin: 2px 0;
     padding: 5px 8px;
-    overflow: hidden;
+    overflow: visible;
   }
   .reply .post-image { float: left; margin: 4px 15px 4px 0; }
   .reply .post-image img { max-width: 250px; max-height: 250px; border: 0; cursor: pointer; }
+
+  /* --- Grid mode overrides --- */
+  body.grid-mode .reply {
+    display: inline-block;
+    width: auto;
+    max-width: 320px;
+  }
 
   /* --- Post info --- */
   .post-info { font-size: 13px; white-space: nowrap; margin-bottom: 2px; }
@@ -380,18 +412,39 @@ $htmlContent = @"
   }
 
   /* --- Inline expanded image --- */
+  .post-image.expanded {
+    float: none !important;
+    margin: 4px 0 10px 0 !important;
+    position: relative;
+    z-index: 100;
+    display: inline-block;
+  }
   .post-image.expanded img {
     max-width: none;
     max-height: none;
+    cursor: nwse-resize;
   }
-  .reply .post-image.expanded {
-    float: none;
-    margin: 4px 0;
+  .resize-handle {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    z-index: 101;
   }
-  .op .post-image.expanded {
-    float: none;
-    margin: 4px 0 10px 0;
+  .resize-handle::after {
+    content: '';
+    position: absolute;
+    bottom: 3px;
+    right: 3px;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid #888;
+    border-bottom: 2px solid #888;
   }
+  .post-image.expanded .resize-handle { display: block; }
 
   /* --- Full-size overlay --- */
   .image-full {
@@ -432,7 +485,6 @@ $htmlContent = @"
   .post-preview .pv-msg .greentext { color: #789922; }
   .post-preview .pv-msg .quotelink { color: #D00; }
 
-  /* --- Post highlight --- */
   .post-highlight { background: #D6DAF0 !important; }
 
   @media (max-width: 600px) {
@@ -441,6 +493,7 @@ $htmlContent = @"
     .reply .post-image img { max-width: 60vw; max-height: 40vh; }
     .post-info { white-space: normal; }
     .post-preview { max-width: 80vw; }
+    .layout-toggle span { display: none; }
   }
 </style>
 </head>
@@ -448,6 +501,11 @@ $htmlContent = @"
 
 <div class="board-banner">
   <span class="board-label">$boardTitle</span>
+  <div class="layout-toggle">
+    <span>Layout:</span>
+    <button class="layout-btn active" onclick="setLayout('list')" id="btn-list">List</button>
+    <button class="layout-btn" onclick="setLayout('grid')" id="btn-grid">Grid</button>
+  </div>
 </div>
 
 <div class="container">
@@ -520,6 +578,7 @@ foreach ($post in $posts) {
     <a href="images/$filename">
       <img src="images/$thumbFilename" alt="$(Escape-Html $origName)" loading="lazy" onclick="return showFullImage(this, 'images/$filename')">
     </a>
+    <div class="resize-handle" title="Drag to resize"></div>
   </div>
 
 "@
@@ -563,6 +622,22 @@ $htmlContent += @"
 
 <script>
 (function() {
+  // --- Layout toggle ---
+  window.setLayout = function(mode) {
+    document.body.classList.remove('list-mode', 'grid-mode');
+    document.body.classList.add(mode + '-mode');
+    document.getElementById('btn-list').classList.toggle('active', mode === 'list');
+    document.getElementById('btn-grid').classList.toggle('active', mode === 'grid');
+    try { localStorage.setItem('archive-layout', mode); } catch(e) {}
+  };
+
+  // Restore saved layout
+  (function() {
+    var saved = 'list';
+    try { saved = localStorage.getItem('archive-layout') || 'list'; } catch(e) {}
+    setLayout(saved);
+  })();
+
   // --- Full-size overlay ---
   window.showFullImage = function(el, src) {
     document.getElementById('fullImg').src = src;
@@ -576,9 +651,8 @@ $htmlContent += @"
     }
   });
 
-  // --- Inline expand (like 4chan [+] button) ---
+  // --- Inline expand ---
   window.toggleExpand = function(btn) {
-    var fileDiv = btn.closest('.file-info');
     var post = btn.closest('.op, .reply');
     var imgDiv = post.querySelector('.post-image');
     if (!imgDiv) return;
@@ -589,16 +663,81 @@ $htmlContent += @"
     if (imgDiv.classList.contains('expanded')) {
       imgDiv.classList.remove('expanded');
       img.src = img.getAttribute('data-thumb');
+      img.style.width = '';
       btn.textContent = '+';
       btn.title = 'Expand image inline';
     } else {
       img.setAttribute('data-thumb', img.src);
       imgDiv.classList.add('expanded');
       img.src = fullSrc;
+      img.style.width = '';
       btn.textContent = '\u2013';
       btn.title = 'Collapse image';
     }
   };
+
+  // --- Drag-to-resize on expanded images ---
+  document.addEventListener('mousedown', function(e) {
+    var handle = e.target.closest('.resize-handle');
+    if (!handle) return;
+    var imgDiv = handle.closest('.post-image');
+    if (!imgDiv || !imgDiv.classList.contains('expanded')) return;
+    var img = imgDiv.querySelector('img');
+    if (!img) return;
+
+    e.preventDefault();
+    var startX = e.clientX;
+    var startW = img.offsetWidth;
+
+    function onMove(ev) {
+      var delta = ev.clientX - startX;
+      var newW = Math.max(50, startW + delta);
+      img.style.width = newW + 'px';
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+
+    document.body.style.cursor = 'nwse-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // Also allow dragging from the image itself when expanded
+  document.addEventListener('mousedown', function(e) {
+    var img = e.target;
+    if (!img.matches('.post-image.expanded img')) return;
+    // Only right area (bottom-right quadrant) to not conflict with overlay click
+    var rect = img.getBoundingClientRect();
+    var relX = e.clientX - rect.left;
+    var relY = e.clientY - rect.top;
+    if (relX < rect.width * 0.7 || relY < rect.height * 0.7) return;
+
+    e.preventDefault();
+    var startX = e.clientX;
+    var startW = img.offsetWidth;
+
+    function onMove(ev) {
+      var delta = ev.clientX - startX;
+      var newW = Math.max(50, startW + delta);
+      img.style.width = newW + 'px';
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+
+    document.body.style.cursor = 'nwse-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 
   // --- Hover preview for quote links ---
   var previewEl = document.getElementById('postPreview');
@@ -614,8 +753,7 @@ $htmlContent += @"
 
     clearTimeout(previewTimer);
     previewTimer = setTimeout(function() {
-      var html = buildPreview(target);
-      previewEl.innerHTML = html;
+      previewEl.innerHTML = buildPreview(target);
       previewEl.style.display = 'block';
       positionPreview(link);
     }, 250);
@@ -635,11 +773,8 @@ $htmlContent += @"
     var left = rect.left + window.scrollX;
     var top = rect.bottom + window.scrollY + 4;
 
-    if (left + pw > window.innerWidth - 10) {
-      left = window.innerWidth - pw - 10;
-    }
+    if (left + pw > window.innerWidth - 10) left = window.innerWidth - pw - 10;
     if (left < 5) left = 5;
-
     if (top + ph > window.innerHeight + window.scrollY - 10) {
       top = rect.top + window.scrollY - ph - 4;
     }
