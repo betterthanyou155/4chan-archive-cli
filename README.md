@@ -32,6 +32,22 @@ archive-interactive.bat
 list-archives.bat
 ```
 
+### Refresh UI on all archives
+
+If you update the tool and want existing archives to use the latest HTML/template:
+
+```
+update-html.bat
+```
+
+Or refresh a single archive:
+
+```powershell
+.\update-html.ps1 -ArchiveName "g_12345678"
+```
+
+This regenerates `thread.html` from the saved `thread.json` without re-downloading anything. Useful for threads that are no longer available online.
+
 ## Supported URL formats
 
 All of these work:
