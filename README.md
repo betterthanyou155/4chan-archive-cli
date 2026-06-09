@@ -20,6 +20,12 @@ archive.bat https://boards.4chan.org/g/thread/12345678
 archive-interactive.bat
 ```
 
+Or run the PowerShell script directly:
+
+```powershell
+.\archive-interactive.ps1
+```
+
 ### PowerShell directly
 
 ```powershell
