@@ -251,117 +251,158 @@ $htmlContent = @"
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>$(Escape-Html $threadTitle) - 4chan Archive</title>
 <style>
-  :root {
-    --bg: #FFFFEE;
-    --post-bg: #F0E0D0;
-    --border: #D9BFB7;
-    --text: #800000;
-    --link: #FF0000;
-    --greentext: #789922;
-    --quotelink: #D00;
-    --subject: #0F0C5D;
-    --name: #117743;
-    --trip: #228854;
-    --date: #106030;
-    --file-info: #707070;
-    --op-bg: #F0E0D0;
-    --reply-bg: #F0E0D0;
-    --quote-bg: #EEDCB2;
-  }
-
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    background: var(--bg);
-    color: var(--text);
+    background: #FFFFEE;
+    color: #800000;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 13px;
-    line-height: 1.4;
-    padding: 10px 20px;
+    line-height: 1.5;
   }
 
-  a { color: var(--link); text-decoration: none; }
+  a { color: #FF0000; text-decoration: none; }
   a:hover { text-decoration: underline; }
 
-  .archive-banner {
-    background: #FFD;
+  /* --- Board title bar --- */
+  .board-banner {
+    background: #EEF2FF;
+    border-bottom: 1px solid #D6DAF0;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: #AF0A0F;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .board-banner a { color: #AF0A0F; }
+  .board-banner .board-label { font-weight: bold; font-size: 13px; }
+
+  /* --- Archive notice --- */
+  .archive-notice {
+    background: #FFFFDD;
     border: 1px solid #DD8;
-    padding: 8px 12px;
-    margin-bottom: 15px;
-    font-size: 12px;
+    padding: 6px 10px;
+    margin: 0 0 10px 0;
+    font-size: 11px;
     text-align: center;
     color: #880;
   }
 
-  .thread-header {
-    text-align: center;
-    margin-bottom: 15px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 10px;
+  /* --- Container --- */
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 10px;
   }
-  .thread-header h1 {
-    font-size: 18px;
-    color: var(--subject);
-    font-weight: bold;
+
+  /* --- OP post --- */
+  .op-container {
+    margin-bottom: 2px;
   }
-  .thread-header .board-title {
-    font-size: 14px;
-    color: #888;
+
+  .op {
+    background: #F0E0D0;
+    border: 1px solid #D9BFB7;
+    padding: 5px 10px;
+    overflow: hidden;
+  }
+
+  .op .post-info {
+    margin-bottom: 2px;
+  }
+
+  .op .file-info {
     margin-bottom: 4px;
   }
 
-  .post {
-    background: var(--reply-bg);
-    border: 1px solid var(--border);
-    margin: 4px 0;
-    padding: 6px 8px;
+  .op .post-image {
+    float: left;
+    margin: 4px 20px 10px 0;
+  }
+
+  .op .post-image img {
+    max-width: 400px;
+    max-height: 400px;
+    border: 0;
+    cursor: pointer;
+  }
+
+  .op .post-message {
+    overflow: hidden;
+  }
+
+  /* --- Thread replies area --- */
+  .thread-replies {
+    border-left: 0;
+    margin: 0 0 10px 0;
+    padding: 0 0 0 20px;
+  }
+
+  /* --- Reply post --- */
+  .reply {
+    background: #F0E0D0;
+    border: 1px solid #D9BFB7;
     display: inline-block;
     max-width: 100%;
     vertical-align: top;
+    margin: 2px 0;
+    padding: 5px 8px;
+    overflow: hidden;
   }
 
-  .post.op {
-    background: var(--op-bg);
-    border: 1px solid var(--border);
-    margin-bottom: 10px;
-    display: block;
+  .reply .post-image {
+    float: left;
+    margin: 4px 15px 4px 0;
   }
 
+  .reply .post-image img {
+    max-width: 250px;
+    max-height: 250px;
+    border: 0;
+    cursor: pointer;
+  }
+
+  /* --- Post info line --- */
   .post-info {
-    margin-bottom: 4px;
+    font-size: 13px;
+    white-space: nowrap;
   }
 
   .post-subject {
-    color: var(--subject);
+    color: #0F0C5D;
     font-weight: bold;
-    font-size: 13px;
   }
 
   .post-name {
-    color: var(--name);
+    color: #117743;
     font-weight: bold;
   }
 
   .post-trip {
-    color: var(--trip);
+    color: #228854;
   }
 
   .post-id {
-    background: #E0B8B8;
-    color: #B80000;
     padding: 0 2px;
     cursor: pointer;
   }
 
   .post-date {
-    color: var(--date);
+    color: #106030;
     font-size: 12px;
   }
 
   .post-number {
-    color: var(--quotelink);
+    color: #800000;
     font-size: 12px;
     cursor: pointer;
+  }
+  .post-number:hover { color: #D00; }
+
+  .post-reply-link {
+    color: #800000;
+    font-size: 12px;
+    margin-left: 2px;
   }
 
   .capcode {
@@ -369,62 +410,67 @@ $htmlContent = @"
     font-weight: bold;
   }
 
+  /* --- File info --- */
   .file-info {
-    color: var(--file-info);
+    color: #707070;
     font-size: 11px;
-    margin: 4px 0;
+    margin-bottom: 2px;
   }
+  .file-info a { color: #707070; }
 
-  .file-info a {
-    color: var(--file-info);
-  }
-
-  .post-image {
-    float: left;
-    margin: 4px 20px 4px 0;
-  }
-
-  .post-image img {
-    max-width: 400px;
-    max-height: 400px;
-    border: 0;
-  }
-
-  .post-image.thumb img {
-    max-width: 250px;
-    max-height: 250px;
-  }
-
+  /* --- Post message --- */
   .post-message {
-    margin-top: 4px;
+    margin-top: 2px;
     word-wrap: break-word;
     overflow-wrap: break-word;
+    font-size: 13px;
+    line-height: 1.5;
   }
 
   .post-message .quotelink {
-    color: var(--quotelink);
-    text-decoration: underline;
+    color: #D00;
+    text-decoration: none;
   }
+  .post-message .quotelink:hover { text-decoration: underline; }
 
   .post-message .greentext {
-    color: var(--greentext);
+    color: #789922;
   }
 
-  .post-message br + br { margin-top: 0.5em; }
+  .post-message .deadlink {
+    color: #999;
+    text-decoration: line-through;
+  }
 
-  .deadlink { color: #999; text-decoration: line-through; }
+  .post-message br + br { margin-top: 0.4em; }
 
-  .thread-stats {
+  /* --- Deleted file --- */
+  .file-deleted {
+    color: #707070;
     font-size: 11px;
-    color: #888;
-    margin-top: 4px;
+    font-style: italic;
+    margin: 4px 0;
   }
 
-  .container {
-    max-width: 900px;
-    margin: 0 auto;
+  /* --- Sticky/Closed icons --- */
+  .thread-icons {
+    display: inline-block;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .thread-icons img {
+    vertical-align: middle;
+    margin-right: 2px;
   }
 
+  /* --- Stats bar --- */
+  .thread-stats {
+    color: #707070;
+    font-size: 11px;
+    margin: 6px 0 0 0;
+  }
+
+  /* --- Full-size overlay --- */
   .image-full {
     display: none;
     position: fixed;
@@ -443,84 +489,48 @@ $htmlContent = @"
   }
   .image-full.active { display: flex; }
 
-  .gallery-nav {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.7);
-    padding: 8px 16px;
-    border-radius: 4px;
-    z-index: 10000;
-    color: #fff;
-    font-size: 14px;
+  /* --- Reply highlight --- */
+  .reply-highlight {
+    background: #D6DAF0 !important;
   }
 
-  .separator {
-    border: 0;
-    border-top: 1px solid var(--border);
-    margin: 8px 0;
-  }
-
+  /* --- Mobile --- */
   @media (max-width: 600px) {
-    body { padding: 5px; }
-    .post-image img { max-width: 90vw; }
-    .container { max-width: 100%; }
+    .container { padding: 0 4px; }
+    .op .post-image img { max-width: 85vw; max-height: 50vh; }
+    .reply .post-image img { max-width: 60vw; max-height: 40vh; }
+    .thread-replies { padding-left: 8px; }
+    .post-info { white-space: normal; }
   }
 </style>
 </head>
 <body>
-<div class="container">
 
-<div class="archive-banner">
-  Locally archived on $archivedDate &mdash; Source: <a href="https://boards.4chan.org/$board/thread/$threadId">boards.4chan.org/$board/thread/$threadId</a>
-  &mdash; All images stored locally
+<div class="board-banner">
+  <span class="board-label">$boardTitle</span>
 </div>
 
-<div class="thread-header">
-  <div class="board-title">$boardTitle</div>
-  <h1>$(Escape-Html $threadTitle)</h1>
-  <div class="thread-stats">
-    $(if($op.replies){"$($op.replies) replies"})$(if($op.images){" &mdash; $($op.images) images"})
-    $(if($op.archived){" &mdash; ARCHIVED"})
-  </div>
+<div class="container">
+
+<div class="archive-notice">
+  Locally archived on $archivedDate &mdash;
+  Source: <a href="https://boards.4chan.org/$board/thread/$threadId">boards.4chan.org/$board/thread/$threadId</a>
+  &mdash; All images stored locally
 </div>
 
 "@
 
 foreach ($post in $posts) {
     $isOp = ($post.resto -eq 0)
-    $postClass = if ($isOp) { "post op" } else { "post" }
 
-    $htmlContent += "`n<div class=`"$postClass`" id=`"p$($post.no)`">`n"
-
-    # File info and image
-    if ($post.tim -and $post.ext -and -not $post.filedeleted) {
-        $filename = "$($post.tim)$($post.ext)"
-        $thumbFilename = "$($post.tim)s.jpg"
-        $origName = if ($post.filename) { "$($post.filename)$($post.ext)" } else { $filename }
-        $fsizeKB = [math]::Round($post.fsize / 1024, 1)
-        $fsizeStr = if ($fsizeKB -ge 1024) { "$([math]::Round($fsizeKB/1024, 2)) MB" } else { "$fsizeKB KB" }
-
-        $htmlContent += @"
-  <div class="post-image">
-    <a href="images/$filename" target="_blank">
-      <img src="images/$thumbFilename" alt="$(Escape-Html $origName)" loading="lazy" onclick="return showFullImage(this, 'images/$filename')">
-    </a>
-  </div>
-  <div class="file-info">
-    <a href="images/$filename">$(Escape-Html $origName)</a>
-    ($($post.w)x$($post.h), $fsizeStr)
-  </div>
-
-"@
+    if ($isOp) {
+        $htmlContent += '<div class="op-container">' + "`n"
+        $htmlContent += '<div class="op" id="p' + $post.no + '">' + "`n"
+    } else {
+        $htmlContent += '<div class="reply" id="p' + $post.no + '">' + "`n"
     }
 
-    if ($post.filedeleted) {
-        $htmlContent += '  <div class="file-info"><em>[File deleted]</em></div>' + "`n"
-    }
-
-    # Post info line
+    # Post info line (comes first on 4chan)
     $htmlContent += '  <div class="post-info">'
 
     if ($post.sub) {
@@ -546,9 +556,39 @@ foreach ($post in $posts) {
     }
 
     $htmlContent += '<span class="post-date">' + (Escape-Html $post.now) + '</span> '
-    $htmlContent += '<span class="post-number">No.' + $post.no + '</span>'
+    $htmlContent += '<a class="post-number" href="#p' + $post.no + '">No.' + $post.no + '</a>'
+
+    if (-not $isOp) {
+        $htmlContent += ' <a class="post-reply-link" href="#p' + $post.resto + '">&#9658;' + $post.resto + '</a>'
+    }
 
     $htmlContent += '</div>' + "`n"
+
+    # File info and image
+    if ($post.tim -and $post.ext -and -not $post.filedeleted) {
+        $filename = "$($post.tim)$($post.ext)"
+        $thumbFilename = "$($post.tim)s.jpg"
+        $origName = if ($post.filename) { "$($post.filename)$($post.ext)" } else { $filename }
+        $fsizeKB = [math]::Round($post.fsize / 1024, 1)
+        $fsizeStr = if ($fsizeKB -ge 1024) { "$([math]::Round($fsizeKB/1024, 2)) MB" } else { "$fsizeKB KB" }
+
+        $htmlContent += @"
+  <div class="file-info">
+    File: <a href="images/$filename">$(Escape-Html $origName)</a>
+    ($($post.w)x$($post.h), $fsizeStr)
+  </div>
+  <div class="post-image">
+    <a href="images/$filename">
+      <img src="images/$thumbFilename" alt="$(Escape-Html $origName)" loading="lazy" onclick="return showFullImage(this, 'images/$filename')">
+    </a>
+  </div>
+
+"@
+    }
+
+    if ($post.filedeleted) {
+        $htmlContent += '  <div class="file-deleted">[File deleted]</div>' + "`n"
+    }
 
     # Post message
     if ($post.com) {
@@ -558,9 +598,27 @@ foreach ($post in $posts) {
 
     $htmlContent += '</div>' + "`n"
 
-    if ($isOp -and $posts.Count -gt 1) {
-        $htmlContent += '<hr class="separator">' + "`n"
+    # Close OP container and open thread replies area after OP
+    if ($isOp) {
+        if ($posts.Count -gt 1) {
+            $htmlContent += '<div class="thread-stats">' + "`n"
+            $stats = @()
+            if ($op.replies) { $stats += "$($op.replies) replies" }
+            if ($op.images) { $stats += "$($op.images) images" }
+            if ($op.archived) { $stats += "ARCHIVED" }
+            $htmlContent += '  ' + ($stats -join ' &mdash; ')
+            $htmlContent += "`n</div>`n"
+            $htmlContent += '</div>' + "`n"
+            $htmlContent += '<div class="thread-replies">' + "`n"
+        } else {
+            $htmlContent += '</div>' + "`n"
+        }
     }
+}
+
+# Close thread-replies if it was opened
+if ($posts.Count -gt 1) {
+    $htmlContent += '</div>' + "`n"
 }
 
 $htmlContent += @"
@@ -596,9 +654,8 @@ document.addEventListener('click', function(e) {
   if (!target) return;
   e.preventDefault();
   target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  target.style.transition = 'background 0.15s';
-  target.style.background = '#FFD700';
-  setTimeout(function() { target.style.background = ''; }, 1500);
+  target.classList.add('reply-highlight');
+  setTimeout(function() { target.classList.remove('reply-highlight'); }, 2000);
   history.replaceState(null, '', href);
 });
 
@@ -606,11 +663,10 @@ document.addEventListener('click', function(e) {
 document.addEventListener('click', function(e) {
   var num = e.target.closest('.post-number');
   if (!num) return;
-  var post = num.closest('.post');
+  var post = num.closest('.op, .reply');
   if (!post) return;
-  post.style.transition = 'background 0.15s';
-  post.style.background = '#FFD700';
-  setTimeout(function() { post.style.background = ''; }, 1000);
+  post.classList.add('reply-highlight');
+  setTimeout(function() { post.classList.remove('reply-highlight'); }, 1500);
 });
 </script>
 
