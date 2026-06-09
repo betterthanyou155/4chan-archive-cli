@@ -349,6 +349,18 @@ foreach ($folder in $folders) {
     max-height: none;
     cursor: nwse-resize;
   }
+  body.is-resizing * {
+    pointer-events: none !important;
+    cursor: nwse-resize !important;
+  }
+  img.resizing-target {
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: pixelated;
+    will-change: width;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  }
   .resize-handle {
     display: none;
     position: absolute;
@@ -634,7 +646,8 @@ foreach ($folder in $folders) {
     }
 
     function updateResize() {
-      img.style.width = Math.max(50, startW + currentX - startX) + 'px';
+      var multiplier = Math.max(1, startW / 200);
+      img.style.width = Math.max(50, startW + (currentX - startX) * multiplier) + 'px';
       ticking = false;
     }
 
@@ -643,10 +656,14 @@ foreach ($folder in $folders) {
       document.removeEventListener('mouseup', onUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      document.body.classList.remove('is-resizing');
+      img.classList.remove('resizing-target');
     }
 
     document.body.style.cursor = 'nwse-resize';
     document.body.style.userSelect = 'none';
+    document.body.classList.add('is-resizing');
+    img.classList.add('resizing-target');
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   });
@@ -740,16 +757,37 @@ foreach ($folder in $folders) {
       }, 4000);
     }
 
-    fetch(apiUrl)
-      .then(function(res) {
-        if (!res.ok) {
-          if (res.status === 404) {
-            throw new Error('Thread deleted (404)');
+    var fetchUrls = [
+      apiUrl,
+      'https://corsproxy.io/?' + encodeURIComponent(apiUrl),
+      'https://api.allorigins.win/raw?url=' + encodeURIComponent(apiUrl),
+      'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(apiUrl)
+    ];
+
+    function tryFetch(index) {
+      if (index >= fetchUrls.length) {
+        return Promise.reject(new Error('Network error'));
+      }
+      return fetch(fetchUrls[index])
+        .then(function(res) {
+          if (!res.ok) {
+            if (res.status === 404) {
+              throw new Error('Thread deleted (404)');
+            }
+            throw new Error('HTTP ' + res.status);
           }
-          throw new Error('HTTP ' + res.status);
-        }
-        return res.json();
-      })
+          return res.json();
+        })
+        .catch(function(err) {
+          if (err.message === 'Thread deleted (404)') {
+            throw err;
+          }
+          console.warn('Fetch attempt ' + index + ' failed (' + fetchUrls[index] + '):', err);
+          return tryFetch(index + 1);
+        });
+    }
+
+    tryFetch(0)
       .then(function(data) {
         var posts = data.posts;
         var newPostCount = 0;
