@@ -350,8 +350,8 @@ foreach ($folder in $folders) {
   }
   .post-image.expanded img,
   .post-image.expanded video {
-    max-width: 90vw;
-    max-height: 80vh;
+    max-width: none;
+    max-height: none;
     height: auto;
     cursor: nwse-resize;
   }
@@ -559,7 +559,7 @@ foreach ($folder in $folders) {
     ($($post.w)x$($post.h), $fsizeStr)
     <span class="expand-btn" onclick="toggleExpand(this)" title="Expand image inline">+</span>
   </div>
-  <div class="post-image">
+  <div class="post-image" data-w="$($post.w)" data-h="$($post.h)">
     <a href="images/$filename">
       <img src="images/$thumbFilename" alt="$(Escape-Html $origName)" loading="lazy" onclick="return showFullImage(this, 'images/$filename')">
     </a>
@@ -708,6 +708,22 @@ foreach ($folder in $folders) {
       btn.title = 'Expand image inline';
     } else {
       imgDiv.classList.add('expanded');
+      var w = parseInt(imgDiv.getAttribute('data-w')) || (isVid ? 300 : (media.naturalWidth || 300));
+      var h = parseInt(imgDiv.getAttribute('data-h')) || (isVid ? 300 : (media.naturalHeight || 300));
+      var aspect = w / h;
+      var maxW = window.innerWidth * 0.9;
+      var maxH = window.innerHeight * 0.8;
+      var targetW = w;
+      if (targetW > maxW) {
+        targetW = maxW;
+      }
+      var targetH = targetW / aspect;
+      if (targetH > maxH) {
+        targetH = maxH;
+        targetW = targetH * aspect;
+      }
+      var initialWidth = Math.round(targetW) + 'px';
+
       if (isVid) {
         var thumbSrc = media.src;
         var altText = media.alt;
@@ -719,7 +735,7 @@ foreach ($folder in $folders) {
         video.muted = true;
         video.setAttribute('data-thumb', thumbSrc);
         video.setAttribute('alt', altText);
-        video.style.maxWidth = '100%';
+        video.style.width = initialWidth;
         aLink.innerHTML = '';
         aLink.appendChild(video);
         
@@ -732,7 +748,7 @@ foreach ($folder in $folders) {
       } else {
         media.setAttribute('data-thumb', media.src);
         media.src = fullSrc;
-        media.style.width = '';
+        media.style.width = initialWidth;
       }
       btn.textContent = '\u2013';
       btn.title = 'Collapse image';
@@ -792,19 +808,13 @@ foreach ($folder in $folders) {
     var imgDiv = e.target.closest('.post-image.expanded');
     if (!imgDiv) return;
     var img = imgDiv.querySelector('img, video');
-    if (!img) return;
-
-    var isHandle = e.target.classList.contains('resize-handle');
-    if (e.target !== img && !isHandle) return;
+    if (!img || e.target !== img) return;
 
     e.preventDefault();
     var startX = e.clientX;
     var startW = img.offsetWidth;
     var currentX = e.clientX;
     var ticking = false;
-    
-    var aspect = (img.naturalWidth || img.videoWidth || img.offsetWidth || 1) / (img.naturalHeight || img.videoHeight || img.offsetHeight || 1);
-    var maxW = Math.min(window.innerWidth * 0.9, aspect * (window.innerHeight * 0.8));
 
     function onMove(ev) {
       currentX = ev.clientX;
@@ -816,7 +826,7 @@ foreach ($folder in $folders) {
 
     function updateResize() {
       var multiplier = Math.max(1, startW / 200);
-      img.style.width = Math.min(maxW, Math.max(50, startW + (currentX - startX) * multiplier)) + 'px';
+      img.style.width = Math.max(50, startW + (currentX - startX) * multiplier) + 'px';
       ticking = false;
     }
 
@@ -835,13 +845,6 @@ foreach ($folder in $folders) {
     img.classList.add('resizing-target');
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  });
-
-  // Prevent browser's native drag-and-drop behavior from hijacking rapid click-and-drag gestures
-  document.addEventListener('dragstart', function(e) {
-    if (e.target.closest('.post-image.expanded')) {
-      e.preventDefault();
-    }
   });
 
   // --- Dynamic Thread Updates via 4chan API ---
@@ -1006,7 +1009,7 @@ foreach ($folder in $folders) {
             html += '    (' + post.w + 'x' + post.h + ', ' + fsizeStr + ')';
             html += '    <span class="expand-btn" onclick="toggleExpand(this)" title="Expand image inline">+</span>';
             html += '  </div>';
-            html += '  <div class="post-image">';
+            html += '  <div class="post-image" data-w="' + post.w + '" data-h="' + post.h + '">';
             html += '    <a href="' + fullSrc + '" target="_blank">';
             html += '      <img src="' + thumbSrc + '" alt="' + escapeHtmlJs(origName) + '" loading="lazy" onclick="return showFullImage(this, \'' + fullSrc + '\')">';
             html += '    </a>';
