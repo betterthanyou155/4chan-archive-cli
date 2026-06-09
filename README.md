@@ -91,6 +91,8 @@ The cached `thread.json` is used to detect which posts are new, making updates f
 - **Parallel downloads** - 4 concurrent downloads by default, configurable
 - **Thread updates** - fetch only new posts and images, no redundant downloads
 - **4chan-style rendering** - authentic Yotsuba B theme, vertical post layout, greentext, quote links, post IDs, capcodes, reply back-links
+- **Quote hover preview** - hover over any `>>12345` link to see a floating preview of that post
+- **Two image viewing modes** - click thumbnail for fullscreen overlay, or click `[+]` next to filename to expand inline (like real 4chan)
 - **Click to zoom** - click any thumbnail for full-size overlay
 - **Quote navigation** - click quote links to jump to referenced posts
 - **Idempotent** - skip already-downloaded files automatically
