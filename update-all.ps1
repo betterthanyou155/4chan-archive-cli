@@ -26,6 +26,9 @@ $removed = 0
 $errors = 0
 
 foreach ($folder in $folders) {
+    # Start stopwatch for dynamic rate limiting
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
     $jsonPath = Join-Path $folder.FullName "thread.json"
     $htmlPath = Join-Path $folder.FullName "thread.html"
     $imgDir = Join-Path $folder.FullName "images"
@@ -57,24 +60,56 @@ foreach ($folder in $folders) {
         }
     }
 
-    # Fetch fresh thread JSON
-    try {
-        $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -Headers @{ "User-Agent" = "4chan-archiver/1.0" }
-        $thread = $response.Content | ConvertFrom-Json
-    } catch {
-        $statusCode = $null
-        if ($_.Exception.Response) {
-            try { $statusCode = [int]$_.Exception.Response.StatusCode } catch {}
+    # Fetch fresh thread JSON with retries
+    $maxAttempts = 3
+    $attempt = 1
+    $success = $false
+    $thread = $null
+    $response = $null
+    $is404 = $false
+
+    while (-not $success -and $attempt -le $maxAttempts) {
+        try {
+            $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -Headers @{ "User-Agent" = "4chan-archiver/1.0" } -TimeoutSec 15
+            $thread = $response.Content | ConvertFrom-Json
+            $success = $true
+        } catch {
+            $statusCode = $null
+            if ($_.Exception.Response) {
+                try { $statusCode = [int]$_.Exception.Response.StatusCode } catch {}
+            }
+            if ($statusCode -eq 404) {
+                $is404 = $true
+                break
+            }
+            Write-Host "    Attempt $attempt failed: $($_.Exception.Message)" -ForegroundColor Yellow
+            if ($attempt -lt $maxAttempts) {
+                $sleepSec = $attempt * 2
+                Start-Sleep -Seconds $sleepSec
+            }
+            $attempt++
         }
-        if ($statusCode -eq 404) {
-            Write-Host "  REMOVED - thread no longer exists (404)" -ForegroundColor Yellow
-            $removed++
-        } else {
-            Write-Host "  ERROR - $($_.Exception.Message)" -ForegroundColor Red
-            $errors++
-        }
-        # Rate limit before next request
-        Start-Sleep -Milliseconds 1100
+    }
+
+    if ($is404) {
+        Write-Host "  REMOVED - thread no longer exists (404)" -ForegroundColor Yellow
+        $removed++
+        
+        # Enforce rate limit before next thread
+        $elapsed = $stopwatch.ElapsedMilliseconds
+        $sleepTime = [math]::Max(0, 1100 - $elapsed)
+        Start-Sleep -Milliseconds $sleepTime
+        continue
+    }
+
+    if (-not $success) {
+        Write-Host "  ERROR - Failed to fetch thread after $maxAttempts attempts" -ForegroundColor Red
+        $errors++
+        
+        # Enforce rate limit before next thread
+        $elapsed = $stopwatch.ElapsedMilliseconds
+        $sleepTime = [math]::Max(0, 1100 - $elapsed)
+        Start-Sleep -Milliseconds $sleepTime
         continue
     }
 
@@ -90,8 +125,11 @@ foreach ($folder in $folders) {
     if ($newPostCount -eq 0 -and $existingPostIds.Count -eq $posts.Count) {
         Write-Host "  UP TO DATE - $($posts.Count) posts, no changes" -ForegroundColor Green
         $skipped++
-        # Rate limit before next request
-        Start-Sleep -Milliseconds 1100
+        
+        # Enforce rate limit before next thread
+        $elapsed = $stopwatch.ElapsedMilliseconds
+        $sleepTime = [math]::Max(0, 1100 - $elapsed)
+        Start-Sleep -Milliseconds $sleepTime
         continue
     }
 
@@ -131,11 +169,26 @@ foreach ($folder in $folders) {
         $pool.Open()
 
         $downloadScript = {
-            param($Url, $Dest)
+            param($Url, $Dest, $TimeoutSeconds)
             try {
-                $wc = New-Object System.Net.WebClient
-                $wc.Headers.Add("User-Agent", "4chan-archiver/1.0")
-                $wc.DownloadFile($Url, $Dest)
+                [Void][System.Reflection.Assembly]::LoadWithPartialName("System.Net.Http")
+                $client = New-Object System.Net.Http.HttpClient
+                if ($TimeoutSeconds -gt 0) {
+                    $client.Timeout = [System.TimeSpan]::FromSeconds($TimeoutSeconds)
+                }
+                $client.DefaultRequestHeaders.UserAgent.ParseAdd("4chan-archiver/1.0")
+                
+                $response = $client.GetAsync($Url).GetAwaiter().GetResult()
+                if (-not $response.IsSuccessStatusCode) {
+                    $client.Dispose()
+                    return @{ Success = $false; Error = "HTTP $($response.StatusCode)" }
+                }
+                $stream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+                $fileStream = New-Object System.IO.FileStream($Dest, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+                $stream.CopyTo($fileStream)
+                $fileStream.Dispose()
+                $stream.Dispose()
+                $client.Dispose()
                 return @{ Success = $true }
             } catch {
                 return @{ Success = $false; Error = $_.Exception.Message }
@@ -147,57 +200,59 @@ foreach ($folder in $folders) {
         $completed = 0
         $dlFailed = 0
 
-        foreach ($task in $pending) {
-            $ps = [PowerShell]::Create().AddScript($downloadScript).AddArgument($task.Url).AddArgument($task.Dest)
-            $ps.RunspacePool = $pool
-            [void]$runspaces.Add(@{
-                Pipe   = $ps
-                Handle = $ps.BeginInvoke()
-                Task   = $task
-            })
-        }
+        try {
+            foreach ($task in $pending) {
+                $ps = [PowerShell]::Create().AddScript($downloadScript).AddArgument($task.Url).AddArgument($task.Dest).AddArgument(30)
+                $ps.RunspacePool = $pool
+                [void]$runspaces.Add(@{
+                    Pipe   = $ps
+                    Handle = $ps.BeginInvoke()
+                    Task   = $task
+                })
+            }
 
-        while ($runspaces.Count -gt 0) {
-            $done = @()
-            for ($i = 0; $i -lt $runspaces.Count; $i++) {
-                $rs = $runspaces[$i]
-                if ($rs.Handle.IsCompleted) {
-                    $result = $rs.Pipe.EndInvoke($rs.Handle)
-                    $rs.Pipe.Dispose()
-                    $completed++
+            while ($runspaces.Count -gt 0) {
+                $done = @()
+                for ($i = 0; $i -lt $runspaces.Count; $i++) {
+                    $rs = $runspaces[$i]
+                    if ($rs.Handle.IsCompleted) {
+                        $result = $rs.Pipe.EndInvoke($rs.Handle)
+                        $rs.Pipe.Dispose()
+                        $completed++
 
-                    if ($result -and $result[0].Success) {
-                        if ($rs.Task.Type -eq "image") {
-                            Write-Host "    [$completed/$total] $($rs.Task.Name)" -ForegroundColor Green
+                        if ($result -and $result[0].Success) {
+                            if ($rs.Task.Type -eq "image") {
+                                Write-Host "    [$completed/$total] $($rs.Task.Name)" -ForegroundColor Green
+                            }
+                        } else {
+                            $dlFailed++
+                            if ($rs.Task.Type -eq "image") {
+                                $err = if ($result) { $result[0].Error } else { "unknown" }
+                                Write-Host "    [$completed/$total] FAILED: $($rs.Task.Name) - $err" -ForegroundColor Red
+                            }
                         }
-                    } else {
-                        $dlFailed++
-                        if ($rs.Task.Type -eq "image") {
-                            $err = if ($result) { $result[0].Error } else { "unknown" }
-                            Write-Host "    [$completed/$total] FAILED: $($rs.Task.Name) - $err" -ForegroundColor Red
-                        }
+                        $done += $i
                     }
-                    $done += $i
+                }
+                for ($j = $done.Count - 1; $j -ge 0; $j--) {
+                    $runspaces.RemoveAt($done[$j])
+                }
+                if ($runspaces.Count -gt 0) {
+                    Start-Sleep -Milliseconds 200
                 }
             }
-            for ($j = $done.Count - 1; $j -ge 0; $j--) {
-                $runspaces.RemoveAt($done[$j])
-            }
-            if ($runspaces.Count -gt 0) {
-                Start-Sleep -Milliseconds 200
-            }
+        } finally {
+            $pool.Close()
+            $pool.Dispose()
         }
-
-        $pool.Close()
-        $pool.Dispose()
 
         if ($dlFailed -gt 0) {
             Write-Host "  $dlFailed download(s) failed" -ForegroundColor Yellow
         }
     }
 
-    # Save updated thread.json
-    $response.Content | Out-File -FilePath $jsonPath -Encoding UTF8
+    # Save updated thread.json (BOM-less UTF-8)
+    [System.IO.File]::WriteAllText($jsonPath, $response.Content)
 
     # Regenerate HTML using update-html logic
     try {
@@ -209,8 +264,10 @@ foreach ($folder in $folders) {
         $errors++
     }
 
-    # Rate limit before next thread
-    Start-Sleep -Milliseconds 1100
+    # Dynamic Rate Limiting before next thread
+    $elapsed = $stopwatch.ElapsedMilliseconds
+    $sleepTime = [math]::Max(0, 1100 - $elapsed)
+    Start-Sleep -Milliseconds $sleepTime
 }
 
 Write-Host "`n========================================" -ForegroundColor Green

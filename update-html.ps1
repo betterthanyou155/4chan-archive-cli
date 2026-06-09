@@ -4,6 +4,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+. "$PSScriptRoot\utils.ps1"
+
 $archiveRoot = Join-Path $PSScriptRoot "archives"
 
 if (-not (Test-Path $archiveRoot)) {
@@ -65,26 +67,7 @@ foreach ($folder in $folders) {
             Get-Date -Format "yyyy-MM-dd HH:mm:ss"
         }
 
-        function Escape-Html($text) {
-            if (-not $text) { return "" }
-            return $text.Replace("&","&amp;").Replace("<","&lt;").Replace(">","&gt;").Replace('"',"&quot;").Replace("'","&#39;")
-        }
 
-        function Convert-Comment($com) {
-            if (-not $com) { return "" }
-            $com = $com -replace '<wbr>', ''
-            $lines = $com -split '<br\s*/?>'
-            $processed = @()
-            foreach ($line in $lines) {
-                $trimmed = $line.TrimStart()
-                if ($trimmed -match '^&gt;' -and $trimmed -notmatch '^&gt;&gt;\d+') {
-                    $processed += "<span class=`"greentext`">$line</span>"
-                } else {
-                    $processed += $line
-                }
-            }
-            return $processed -join '<br>'
-        }
 
         # --- Generate HTML (same template as archive.ps1) ---
 
