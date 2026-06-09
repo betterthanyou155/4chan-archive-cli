@@ -138,6 +138,8 @@ foreach ($folder in $folders) {
     color: #880;
   }
 
+  /* .update-btn and .temp-notice styles commented out since the dynamic update button was removed at user request */
+  /*
   .update-btn {
     background: #E0F0E0;
     border: 1px solid #A0C0A0;
@@ -152,6 +154,7 @@ foreach ($folder in $folders) {
     border: 1px solid #A0D0A0;
     color: #106030;
   }
+  */
 
   .container {
     max-width: 960px;
@@ -236,7 +239,8 @@ foreach ($folder in $folders) {
     display: block;
     width: 100%;
   }
-  body.grid-mode .reply .post-image.expanded img {
+  body.grid-mode .reply .post-image.expanded img,
+  body.grid-mode .reply .post-image.expanded video {
     max-width: 100%;
     max-height: none;
     height: auto;
@@ -344,7 +348,8 @@ foreach ($folder in $folders) {
     z-index: 100;
     display: inline-block;
   }
-  .post-image.expanded img {
+  .post-image.expanded img,
+  .post-image.expanded video {
     max-width: none;
     max-height: none;
     cursor: nwse-resize;
@@ -353,7 +358,8 @@ foreach ($folder in $folders) {
     pointer-events: none !important;
     cursor: nwse-resize !important;
   }
-  img.resizing-target {
+  img.resizing-target,
+  video.resizing-target {
     image-rendering: -moz-crisp-edges;
     image-rendering: -webkit-optimize-contrast;
     image-rendering: pixelated;
@@ -434,15 +440,17 @@ foreach ($folder in $folders) {
 </head>
 <body>
 
-<div class="board-banner">
-  <span class="board-label">$boardTitle</span>
-  <div class="layout-toggle">
-    <button class="layout-btn update-btn" onclick="updateThreadDynamic()" id="btn-update" title="Fetch new posts from 4chan API (dynamic update)">Update</button>
-    <span>Layout:</span>
-    <button class="layout-btn active" onclick="setLayout('list')" id="btn-list">List</button>
-    <button class="layout-btn" onclick="setLayout('grid')" id="btn-grid">Grid</button>
+  <div class="board-banner">
+    <span class="board-label">$boardTitle</span>
+    <div class="layout-toggle">
+      <!-- Dynamic update button removed at user request:
+      <button class="layout-btn update-btn" onclick="updateThreadDynamic()" id="btn-update" title="Fetch new posts from 4chan API (dynamic update)">Update</button>
+      -->
+      <span>Layout:</span>
+      <button class="layout-btn active" onclick="setLayout('list')" id="btn-list">List</button>
+      <button class="layout-btn" onclick="setLayout('grid')" id="btn-grid">Grid</button>
+    </div>
   </div>
-</div>
 
 <div class="container">
 
@@ -570,8 +578,7 @@ foreach ($folder in $folders) {
 
 </div>
 
-<div class="image-full" id="imageOverlay" onclick="this.classList.remove('active')">
-  <img id="fullImg" src="" alt="Full size">
+<div class="image-full" id="imageOverlay" onclick="closeOverlay(event)">
 </div>
 
 <div class="post-preview" id="postPreview" style="display:none"></div>
@@ -591,34 +598,112 @@ foreach ($folder in $folders) {
     setLayout(saved);
   })();
 
+  function isVideo(src) {
+    return src.match(/\.(webm|mp4)$/i);
+  }
+
+  window.closeOverlay = function(e) {
+    // If the click is directly on the video or image itself, do not close the overlay
+    if (e && e.target && (e.target.tagName === 'VIDEO' || e.target.tagName === 'IMG')) {
+      return;
+    }
+    var overlay = document.getElementById('imageOverlay');
+    overlay.classList.remove('active');
+    overlay.innerHTML = ''; // Stop video playback and release resource
+  };
+
   window.showFullImage = function(el, src) {
     if (el.closest('.post-image.expanded')) return false;
-    document.getElementById('fullImg').src = src;
-    document.getElementById('imageOverlay').classList.add('active');
+    
+    var overlay = document.getElementById('imageOverlay');
+    overlay.innerHTML = ''; // Clear previous contents
+    
+    if (isVideo(src)) {
+      var video = document.createElement('video');
+      video.src = src;
+      video.controls = true;
+      video.autoplay = true;
+      video.loop = true;
+      video.style.maxWidth = '100vw';
+      video.style.maxHeight = '100vh';
+      // Prevent clicks on the video player/controls from closing the overlay
+      video.onclick = function(ev) {
+        ev.stopPropagation();
+      };
+      overlay.appendChild(video);
+    } else {
+      var img = document.createElement('img');
+      img.src = src;
+      img.alt = 'Full size';
+      img.id = 'fullImg';
+      overlay.appendChild(img);
+    }
+    
+    overlay.classList.add('active');
     return false;
   };
+
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') document.getElementById('imageOverlay').classList.remove('active');
+    if (e.key === 'Escape') {
+      var overlay = document.getElementById('imageOverlay');
+      overlay.classList.remove('active');
+      overlay.innerHTML = '';
+    }
   });
 
   window.toggleExpand = function(btn) {
     var post = btn.closest('.op, .reply');
     var imgDiv = post.querySelector('.post-image');
     if (!imgDiv) return;
-    var img = imgDiv.querySelector('img');
-    if (!img) return;
-    var fullSrc = imgDiv.querySelector('a').getAttribute('href');
+    var media = imgDiv.querySelector('img, video');
+    if (!media) return;
+    var aLink = imgDiv.querySelector('a');
+    var fullSrc = aLink.getAttribute('href') || aLink.getAttribute('data-href');
+    var isVid = isVideo(fullSrc);
+
     if (imgDiv.classList.contains('expanded')) {
       imgDiv.classList.remove('expanded');
-      img.src = img.getAttribute('data-thumb');
-      img.style.width = '';
+      if (isVid) {
+        var thumbSrc = media.getAttribute('data-thumb');
+        var altText = media.getAttribute('alt');
+        aLink.innerHTML = '<img src="' + thumbSrc + '" alt="' + altText + '" loading="lazy" onclick="return showFullImage(this, \'' + fullSrc + '\')">';
+        aLink.removeAttribute('data-href');
+        aLink.setAttribute('href', fullSrc);
+        aLink.onclick = null;
+      } else {
+        media.src = media.getAttribute('data-thumb');
+        media.style.width = '';
+      }
       btn.textContent = '+';
       btn.title = 'Expand image inline';
     } else {
-      img.setAttribute('data-thumb', img.src);
       imgDiv.classList.add('expanded');
-      img.src = fullSrc;
-      img.style.width = '';
+      if (isVid) {
+        var thumbSrc = media.src;
+        var altText = media.alt;
+        var video = document.createElement('video');
+        video.src = fullSrc;
+        video.controls = true;
+        video.autoplay = true;
+        video.loop = true;
+        video.muted = true;
+        video.setAttribute('data-thumb', thumbSrc);
+        video.setAttribute('alt', altText);
+        video.style.maxWidth = '100%';
+        aLink.innerHTML = '';
+        aLink.appendChild(video);
+        
+        aLink.setAttribute('data-href', fullSrc);
+        aLink.removeAttribute('href');
+        aLink.onclick = function(ev) {
+          ev.preventDefault();
+          return false;
+        };
+      } else {
+        media.setAttribute('data-thumb', media.src);
+        media.src = fullSrc;
+        media.style.width = '';
+      }
       btn.textContent = '\u2013';
       btn.title = 'Collapse image';
     }
@@ -628,7 +713,7 @@ foreach ($folder in $folders) {
   document.addEventListener('mousedown', function(e) {
     var imgDiv = e.target.closest('.post-image.expanded');
     if (!imgDiv) return;
-    var img = imgDiv.querySelector('img');
+    var img = imgDiv.querySelector('img, video');
     if (!img || e.target !== img) return;
 
     e.preventDefault();
@@ -731,6 +816,9 @@ foreach ($folder in $folders) {
     });
   }
 
+  /* 
+   * Dynamic thread update features using 4chan CORS API (disabled at user request).
+   * 
   window.updateThreadDynamic = function() {
     var btn = document.getElementById('btn-update');
     if (btn.disabled) return;
@@ -887,6 +975,7 @@ foreach ($folder in $folders) {
         showUpdateError(err.message === 'Failed to fetch' ? 'Network error' : err.message);
       });
   };
+  */
 
   var previewEl = document.getElementById('postPreview');
   var previewTimer = null;
