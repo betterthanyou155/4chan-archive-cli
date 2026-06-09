@@ -792,7 +792,10 @@ foreach ($folder in $folders) {
     var imgDiv = e.target.closest('.post-image.expanded');
     if (!imgDiv) return;
     var img = imgDiv.querySelector('img, video');
-    if (!img || e.target !== img) return;
+    if (!img) return;
+
+    var isHandle = e.target.classList.contains('resize-handle');
+    if (e.target !== img && !isHandle) return;
 
     e.preventDefault();
     var startX = e.clientX;
@@ -832,6 +835,13 @@ foreach ($folder in $folders) {
     img.classList.add('resizing-target');
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+  });
+
+  // Prevent browser's native drag-and-drop behavior from hijacking rapid click-and-drag gestures
+  document.addEventListener('dragstart', function(e) {
+    if (e.target.closest('.post-image.expanded')) {
+      e.preventDefault();
+    }
   });
 
   // --- Dynamic Thread Updates via 4chan API ---
