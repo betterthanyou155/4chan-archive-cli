@@ -119,11 +119,12 @@ The cached `thread.json` is used to detect which posts are new, making updates f
 - **Offline HTML** - single file opens in any browser, no server needed
 - **Parallel downloads** - 4 concurrent downloads by default, configurable
 - **Thread updates** - fetch only new posts and images, no redundant downloads
-- **4chan-style rendering** - authentic Yotsuba B theme, vertical post layout, greentext, quote links, post IDs, capcodes, reply back-links
-- **Quote hover preview** - hover over any `>>12345` link to see a floating preview of that post
+- **4chan-style rendering** - authentic Yotsuba B theme, vertical post layout, greentext, quote links, post IDs, capcodes
+- **Dynamic Backlinks** - posts feature clickable links to replies that quote them (e.g. `>>950117370`), supporting standard hover previews and click-to-scroll navigation
+- **Quote hover preview** - hover over any `>>12345` link or backlink to see a floating preview of that post
 - **Two image viewing modes** - click thumbnail for fullscreen overlay, or click `[+]` next to filename to expand inline (like real 4chan)
 - **Drag-to-resize images** - expanded images can be resized by dragging the bottom-right corner (old reddit style)
-- **Layout toggle** - switch between List (single column) and Grid (card layout) from the top-right corner, saved automatically
+- **Improved Layout toggle** - switch between List (authentic single column, no staircase float bugs) and Grid (media-priority responsive card grid, auto-scrollable messages, full-width OP spanning)
 - **Click to zoom** - click any thumbnail for full-size overlay
 - **Quote navigation** - click quote links to jump to referenced posts
 - **Idempotent** - skip already-downloaded files automatically

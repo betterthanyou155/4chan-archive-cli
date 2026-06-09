@@ -167,8 +167,8 @@ foreach ($folder in $folders) {
     background: #F0E0D0;
     border: 1px solid #D9BFB7;
     padding: 5px 10px;
-    overflow: visible;
     margin-bottom: 4px;
+    display: flow-root;
   }
   .op .post-image { float: left; margin: 4px 20px 10px 0; }
   .op .post-image img { max-width: 400px; max-height: 400px; border: 0; cursor: pointer; }
@@ -177,20 +177,109 @@ foreach ($folder in $folders) {
   .reply {
     background: #F0E0D0;
     border: 1px solid #D9BFB7;
-    display: block;
-    max-width: 100%;
-    vertical-align: top;
-    margin: 2px 0;
+    display: table;
+    clear: both;
+    margin: 4px 0;
     padding: 5px 8px;
-    overflow: visible;
   }
   .reply .post-image { float: left; margin: 4px 15px 4px 0; }
   .reply .post-image img { max-width: 250px; max-height: 250px; border: 0; cursor: pointer; }
 
+  /* --- Grid mode overrides --- */
+  body.grid-mode .container {
+    max-width: 95vw;
+  }
+  body.grid-mode .thread {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    align-items: start;
+  }
+  body.grid-mode .op {
+    grid-column: 1 / -1;
+    display: flow-root;
+  }
+  body.grid-mode .thread-stats {
+    grid-column: 1 / -1;
+  }
   body.grid-mode .reply {
-    display: inline-block;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    background: #F0E0D0;
+    border: 1px solid #D9BFB7;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  body.grid-mode .reply:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  }
+  body.grid-mode .reply .post-image {
+    float: none;
+    margin: 8px 0;
+    text-align: center;
+    align-self: center;
+    width: 100%;
+  }
+  body.grid-mode .reply .post-image img {
+    max-width: 100%;
+    max-height: 200px;
     width: auto;
-    max-width: 320px;
+    height: auto;
+    object-fit: contain;
+    border-radius: 2px;
+  }
+  body.grid-mode .reply .post-image.expanded {
+    display: block;
+    width: 100%;
+  }
+  body.grid-mode .reply .post-image.expanded img {
+    max-width: 100%;
+    max-height: none;
+    height: auto;
+  }
+  body.grid-mode .reply .post-info {
+    white-space: normal;
+    font-size: 11px;
+    border-bottom: 1px solid rgba(128, 0, 0, 0.15);
+    padding-bottom: 5px;
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+  body.grid-mode .reply .file-info {
+    font-size: 10px;
+    color: #707070;
+    margin-bottom: 4px;
+    word-break: break-all;
+  }
+  body.grid-mode .reply .post-message {
+    font-size: 12px;
+    line-height: 1.4;
+    max-height: 160px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #D9BFB7 transparent;
+    border-top: 1px solid rgba(128, 0, 0, 0.08);
+    padding-top: 6px;
+    margin-top: 6px;
+  }
+  body.grid-mode .reply .post-message::-webkit-scrollbar {
+    width: 4px;
+  }
+  body.grid-mode .reply .post-message::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  body.grid-mode .reply .post-message::-webkit-scrollbar-thumb {
+    background: #D9BFB7;
+    border-radius: 2px;
+  }
+  body.grid-mode .reply .post-message::-webkit-scrollbar-thumb:hover {
+    background: #AF0A0F;
   }
 
   .post-info { font-size: 13px; white-space: nowrap; margin-bottom: 2px; }
@@ -203,6 +292,8 @@ foreach ($folder in $folders) {
   .post-reply-link { color: #800000; font-size: 12px; margin-left: 2px; }
   .post-reply-link:hover { color: #D00; }
   .capcode { color: #F0A; font-weight: bold; }
+  .backlink { font-size: 11px; display: inline-block; margin-left: 6px; vertical-align: middle; }
+  .backlink a { color: #D00; margin-right: 4px; }
 
   .file-info { color: #707070; font-size: 11px; margin-bottom: 2px; }
   .file-info a { color: #707070; }
@@ -354,6 +445,22 @@ foreach ($folder in $folders) {
 
 "@
 
+        $backlinks = @{}
+        foreach ($p in $posts) {
+            if ($p.com -and $p.com -match 'href="#p(\d+)"') {
+                $matches = [regex]::Matches($p.com, 'href="#p(\d+)"')
+                foreach ($m in $matches) {
+                    $targetId = $m.Groups[1].Value
+                    if (-not $backlinks.ContainsKey($targetId)) {
+                        $backlinks[$targetId] = [System.Collections.Generic.List[string]]::new()
+                    }
+                    if (-not $backlinks[$targetId].Contains($p.no.ToString())) {
+                        $backlinks[$targetId].Add($p.no.ToString())
+                    }
+                }
+            }
+        }
+
         foreach ($post in $posts) {
             $isOp = ($post.resto -eq 0)
             $divClass = if ($isOp) { "op" } else { "reply" }
@@ -388,6 +495,15 @@ foreach ($folder in $folders) {
 
             if (-not $isOp) {
                 $htmlContent += ' <a class="post-reply-link" href="#p' + $post.resto + '">&#9658;' + $post.resto + '</a>'
+            }
+
+            $postNoStr = $post.no.ToString()
+            if ($backlinks.ContainsKey($postNoStr)) {
+                $htmlContent += '<span class="backlink">'
+                foreach ($quotedBy in $backlinks[$postNoStr]) {
+                    $htmlContent += '<a class="quotelink" href="#p' + $quotedBy + '">&gt;&gt;' + $quotedBy + '</a>'
+                }
+                $htmlContent += '</span>'
             }
 
             $htmlContent += '</div>' + "`n"
