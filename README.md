@@ -48,6 +48,19 @@ Or refresh a single archive:
 
 This regenerates `thread.html` from the saved `thread.json` without re-downloading anything. Useful for threads that are no longer available online.
 
+### Auto-update all live threads
+
+Fetch fresh data from 4chan for every archive, download new posts/images, and regenerate HTML:
+
+```
+update-all.bat
+```
+
+- Threads that are still alive get new posts downloaded
+- Threads that have been removed (404) are marked as REMOVED but their local files are preserved
+- Threads with no changes are skipped
+- Rate limited to respect 4chan API rules
+
 ## Supported URL formats
 
 All of these work:
