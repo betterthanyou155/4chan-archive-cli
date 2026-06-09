@@ -121,19 +121,20 @@ The cached `thread.json` is used to detect which posts are new, making updates f
 
 ## Features
 
-- **Full quality images** - original files as uploaded, not compressed
-- **Offline HTML** - single file opens in any browser, no server needed
-- **Parallel downloads** - 4 concurrent downloads by default, configurable
-- **Thread updates** - fetch only new posts and images, no redundant downloads
-- **4chan-style rendering** - authentic Yotsuba B theme, vertical post layout, greentext, quote links, post IDs, capcodes
-- **Dynamic Backlinks** - posts feature clickable links to replies that quote them (e.g. `>>950117370`), supporting standard hover previews and click-to-scroll navigation
-- **Quote hover preview** - hover over any `>>12345` link or backlink to see a floating preview of that post
-- **Two image viewing modes** - click thumbnail for fullscreen overlay, or click `[+]` next to filename to expand inline (like real 4chan)
-- **Drag-to-resize images** - expanded images can be resized by dragging the bottom-right corner (old reddit style)
-- **Improved Layout toggle** - switch between List (authentic single column, no staircase float bugs) and Grid (media-priority responsive card grid, auto-scrollable messages, full-width OP spanning)
-- **Click to zoom** - click any thumbnail for full-size overlay
-- **Quote navigation** - click quote links to jump to referenced posts
-- **Idempotent** - skip already-downloaded files automatically
+- **Full quality images & videos** - downloads original attachments at full quality without compression
+- **Offline HTML** - single file opens directly in any browser (works completely offline under `file://` protocol)
+- **Parallel downloads** - concurrent file downloads with configurable limits (defaults to 4, supports 1-16)
+- **Native Video Player Support** - WebM and MP4 files are rendered using a native HTML5 video player with playback controls, autoplay, loop, and auto-mute in both inline-expanded and fullscreen modes
+- **Expand / Collapse All Images** - dedicated top-bar toggle button to expand or collapse all static image attachments inline simultaneously
+- **Viewport Bounds Capping** - expanded images and videos are restricted to viewport dimensions (`90vw` and `80vh` max), scaling down proportionally to prevent screen overflow on initial expansion
+- **Drag-to-Resize** - expanded images and video players can be resized dynamically via mouse dragging. The drag logic tracks aspect ratio calculations and respects viewport limits, completely preventing distortion or layout clipping
+- **Dynamic Backlinks** - posts automatically parse quote mentions and render quote backlinks (e.g. `>>950117370`), supporting scroll-to-highlight navigation and quote hover previews
+- **Quote Hover Previews** - hovering over quote links or backlinks displays a floating preview of the referenced post
+- **Authentic 4chan Yotsuba B Style** - renders threads with Yotsuba styling, vertical layouts, greentext, identity tripcodes, capcodes, and post headers
+- **Improved Layout Toggle** - switch between List (authentic single column, resolves staircase floating layout bugs) and Grid (responsive layout cards, scroll-constrained comments, centered media)
+- **Idempotent Downloads** - automatically skips already-downloaded files, ensuring fast and network-efficient updates
+- **Transient Error Resilience** - exponential backoff request retries, modern connection timeouts, and dynamic API rate limiting to ensure reliable downloads
+
 
 ## Notes
 
