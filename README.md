@@ -2,10 +2,12 @@
 
 > Download entire 4chan threads — every image, every video, full quality. Generates a single self-contained HTML viewer with authentic 4chan styling that works completely offline.
 
-![Platform](https://img.shields.io/badge/platform-Windows-0078D6?style=flat-square&logo=windows&logoColor=white)
-![PowerShell](https://img.shields.io/badge/powershell-5.1+-5391FE?style=flat-square&logo=powershell&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
-![Release](https://img.shields.io/github/v/release/divyanshchandhok/4chan-archive-cli?style=flat-square)
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-Windows-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Platform">
+  <img src="https://img.shields.io/badge/powershell-5.1+-5391FE?style=flat-square&logo=powershell&logoColor=white" alt="PowerShell">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
+  <img src="https://img.shields.io/github/v/release/divyanshchandhok/4chan-archive-cli?style=flat-square" alt="Release">
+</p>
 
 <p align="center">
   <img src="demo.gif" alt="4chan Thread Archiver Demo" width="720">
