@@ -38,15 +38,15 @@ foreach ($folder in $folders) {
         continue
     }
 
-    # Parse board and threadId from folder name (format: board_threadId)
-    $parts = $folder.Name -split '_', 2
-    if ($parts.Count -ne 2) {
+    # Parse board and threadId from folder name
+    $info = Parse-ArchiveFolderName $folder.Name
+    if (-not $info) {
         Write-Host "  SKIP $($folder.Name) - unexpected folder name format" -ForegroundColor DarkGray
         $skipped++
         continue
     }
-    $board = $parts[0]
-    $threadId = $parts[1]
+    $board = $info.Board
+    $threadId = $info.ThreadId
 
     try {
         $thread = Get-Content $jsonPath -Raw | ConvertFrom-Json

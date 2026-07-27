@@ -122,18 +122,19 @@ https://a.4cdn.org/g/thread/12345678.json
 |-----------|---------|-------------|
 | `Url` | *(required)* | Thread URL to archive |
 | `-Concurrency` | `4` | Number of parallel downloads (1-16) |
+| `-DelayMs` | `0` | Delay between file downloads in milliseconds (0-10000) to prevent rate limiting |
 
-Example with more parallelism:
+Example with custom parallelism and rate-limiting delay:
 
 ```powershell
-.\archive.ps1 "https://boards.4chan.org/g/thread/12345678" -Concurrency 8
+.\archive.ps1 "https://boards.4chan.org/g/thread/12345678" -Concurrency 4 -DelayMs 250
 ```
 
 ## Output structure
 
 ```
 archives/
-  g_12345678/
+  g_12345678_mechanical_keyboards/
     thread.html          <- open this in a browser
     thread.json          <- cached API response for efficient updates
     images/

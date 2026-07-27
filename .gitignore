@@ -1,4 +1,7 @@
 archives/
 demo/
 *.ps1~
+*.zip
+handoff-prompt.txt
 traction-guide.md
+.DS_Store

@@ -1,9 +1,13 @@
 param(
     [ValidateRange(1,16)]
-    [int]$Concurrency = 4
+    [int]$Concurrency = 4,
+    [ValidateRange(0,10000)]
+    [int]$DelayMs = 0
 )
 
 $ErrorActionPreference = "Stop"
+
+. "$PSScriptRoot\utils.ps1"
 
 $archiveRoot = Join-Path $PSScriptRoot "archives"
 
@@ -36,14 +40,14 @@ foreach ($folder in $folders) {
     Write-Host "--- $($folder.Name) ---" -ForegroundColor White
 
     # Parse board and threadId from folder name
-    $parts = $folder.Name -split '_', 2
-    if ($parts.Count -ne 2) {
+    $info = Parse-ArchiveFolderName $folder.Name
+    if (-not $info) {
         Write-Host "  SKIP - unexpected folder name format" -ForegroundColor DarkGray
         $skipped++
         continue
     }
-    $board = $parts[0]
-    $threadId = $parts[1]
+    $board = $info.Board
+    $threadId = $info.ThreadId
     $apiUrl = "https://a.4cdn.org/$board/thread/$threadId.json"
     $imageBase = "https://i.4cdn.org/$board"
 
@@ -70,7 +74,7 @@ foreach ($folder in $folders) {
 
     while (-not $success -and $attempt -le $maxAttempts) {
         try {
-            $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -Headers @{ "User-Agent" = "4chan-archiver/1.0" } -TimeoutSec 15
+            $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -Headers @{ "User-Agent" = "4chan-archiver/1.1" } -TimeoutSec 15
             $thread = $response.Content | ConvertFrom-Json
             $success = $true
         } catch {
@@ -163,35 +167,54 @@ foreach ($folder in $folders) {
     $pending = $tasks | Where-Object { -not (Test-Path $_.Dest) }
 
     if ($pending.Count -gt 0) {
-        Write-Host "  Downloading $($pending.Count) files ($Concurrency concurrent) ..." -ForegroundColor Cyan
+        $delayMsg = if ($DelayMs -gt 0) { ", ${DelayMs}ms delay" } else { "" }
+        Write-Host "  Downloading $($pending.Count) files ($Concurrency concurrent$delayMsg) ..." -ForegroundColor Cyan
 
         $pool = [RunspaceFactory]::CreateRunspacePool(1, $Concurrency)
         $pool.Open()
 
         $downloadScript = {
-            param($Url, $Dest, $TimeoutSeconds)
-            try {
-                [Void][System.Reflection.Assembly]::LoadWithPartialName("System.Net.Http")
-                $client = New-Object System.Net.Http.HttpClient
-                if ($TimeoutSeconds -gt 0) {
-                    $client.Timeout = [System.TimeSpan]::FromSeconds($TimeoutSeconds)
-                }
-                $client.DefaultRequestHeaders.UserAgent.ParseAdd("4chan-archiver/1.0")
-                
-                $response = $client.GetAsync($Url).GetAwaiter().GetResult()
-                if (-not $response.IsSuccessStatusCode) {
+            param($Url, $Dest, $TimeoutSeconds, $DelayMs)
+            if ($DelayMs -gt 0) {
+                Start-Sleep -Milliseconds $DelayMs
+            }
+            $maxTries = 3
+            $try = 1
+            while ($try -le $maxTries) {
+                try {
+                    [Void][System.Reflection.Assembly]::LoadWithPartialName("System.Net.Http")
+                    $client = New-Object System.Net.Http.HttpClient
+                    if ($TimeoutSeconds -gt 0) {
+                        $client.Timeout = [System.TimeSpan]::FromSeconds($TimeoutSeconds)
+                    }
+                    $client.DefaultRequestHeaders.UserAgent.ParseAdd("4chan-archiver/1.1")
+                    
+                    $response = $client.GetAsync($Url).GetAwaiter().GetResult()
+                    if (-not $response.IsSuccessStatusCode) {
+                        $statusCode = [int]$response.StatusCode
+                        $client.Dispose()
+                        if (($statusCode -eq 429 -or $statusCode -ge 500) -and $try -lt $maxTries) {
+                            Start-Sleep -Milliseconds ($try * 1000)
+                            $try++
+                            continue
+                        }
+                        return @{ Success = $false; Error = "HTTP $statusCode" }
+                    }
+                    $stream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+                    $fileStream = New-Object System.IO.FileStream($Dest, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+                    $stream.CopyTo($fileStream)
+                    $fileStream.Dispose()
+                    $stream.Dispose()
                     $client.Dispose()
-                    return @{ Success = $false; Error = "HTTP $($response.StatusCode)" }
+                    return @{ Success = $true }
+                } catch {
+                    if ($try -lt $maxTries) {
+                        Start-Sleep -Milliseconds ($try * 1000)
+                        $try++
+                    } else {
+                        return @{ Success = $false; Error = $_.Exception.Message }
+                    }
                 }
-                $stream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
-                $fileStream = New-Object System.IO.FileStream($Dest, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
-                $stream.CopyTo($fileStream)
-                $fileStream.Dispose()
-                $stream.Dispose()
-                $client.Dispose()
-                return @{ Success = $true }
-            } catch {
-                return @{ Success = $false; Error = $_.Exception.Message }
             }
         }
 
@@ -202,13 +225,17 @@ foreach ($folder in $folders) {
 
         try {
             foreach ($task in $pending) {
-                $ps = [PowerShell]::Create().AddScript($downloadScript).AddArgument($task.Url).AddArgument($task.Dest).AddArgument(30)
+                $ps = [PowerShell]::Create().AddScript($downloadScript).AddArgument($task.Url).AddArgument($task.Dest).AddArgument(30).AddArgument($DelayMs)
                 $ps.RunspacePool = $pool
                 [void]$runspaces.Add(@{
                     Pipe   = $ps
                     Handle = $ps.BeginInvoke()
                     Task   = $task
                 })
+
+                if ($DelayMs -gt 0) {
+                    Start-Sleep -Milliseconds $DelayMs
+                }
             }
 
             while ($runspaces.Count -gt 0) {
@@ -284,3 +311,4 @@ if ($errors -gt 0) {
     Write-Host " Errors:   $errors" -ForegroundColor Red
 }
 Write-Host "========================================" -ForegroundColor Green
+

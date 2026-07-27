@@ -2,7 +2,9 @@ param(
     [Parameter(Position=0)]
     [string]$Url,
     [ValidateRange(1,16)]
-    [int]$Concurrency = 4
+    [int]$Concurrency = 4,
+    [ValidateRange(0,10000)]
+    [int]$DelayMs = 0
 )
 
 if (-not $Url) {
@@ -16,6 +18,8 @@ if (-not $Url) {
 }
 
 $ErrorActionPreference = "Stop"
+
+. "$PSScriptRoot\utils.ps1"
 
 # --- Parse URL ---
 if ($Url -match '(?:boards\.(?:4chan|4channel)\.org|(?:4chan|4channel)\.org|a\.4cdn\.org)/([a-z0-9]+)/thread/(\d+)') {
@@ -32,11 +36,12 @@ $imageBase = "https://i.4cdn.org/$board"
 
 # --- Create folder structure ---
 $archiveRoot = Join-Path $PSScriptRoot "archives"
-$threadDir = Join-Path $archiveRoot "${board}_${threadId}"
-$imgDir = Join-Path $threadDir "images"
+$existingDir = Get-ExistingArchiveDir -archiveRoot $archiveRoot -board $board -threadId $threadId
+$threadDir = $null
 $isUpdate = $false
 
-if (Test-Path $threadDir) {
+if ($existingDir) {
+    $threadDir = $existingDir
     Write-Host "Thread already archived at: $threadDir" -ForegroundColor Yellow
     $reply = Read-Host "Update with new posts? (Y/n)"
     if ($reply -match '^(n|no)$') {
@@ -46,11 +51,9 @@ if (Test-Path $threadDir) {
     $isUpdate = $true
 }
 
-New-Item -ItemType Directory -Path $imgDir -Force | Out-Null
-
 # --- Load existing post IDs for efficient updating ---
 $existingPostIds = @{}
-if ($isUpdate) {
+if ($isUpdate -and $threadDir) {
     $savedJsonPath = Join-Path $threadDir "thread.json"
     if (Test-Path $savedJsonPath) {
         try {
@@ -75,7 +78,7 @@ $response = $null
 
 while (-not $success -and $attempt -le $maxAttempts) {
     try {
-        $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -Headers @{ "User-Agent" = "4chan-archiver/1.0" } -TimeoutSec 15
+        $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing -Headers @{ "User-Agent" = "4chan-archiver/1.1" } -TimeoutSec 15
         $thread = $response.Content | ConvertFrom-Json
         $success = $true
     } catch {
@@ -100,7 +103,7 @@ while (-not $success -and $attempt -le $maxAttempts) {
 
 if (-not $success) {
     Write-Host "ERROR: Failed to fetch thread after $maxAttempts attempts. It may not exist, has been deleted, or network is down." -ForegroundColor Red
-    if (-not $isUpdate) {
+    if (-not $isUpdate -and $threadDir -and (Test-Path $threadDir)) {
         Remove-Item -Recurse -Force $threadDir -ErrorAction SilentlyContinue
     }
     exit 1
@@ -108,6 +111,19 @@ if (-not $success) {
 
 $posts = $thread.posts
 $op = $posts[0]
+
+# --- Determine folder name if new archive ---
+if (-not $isUpdate) {
+    $slug = Get-SanitizedSlug $op.sub
+    if (-not $slug -and $op.com) {
+        $slug = Get-SanitizedSlug $op.com
+    }
+    $folderName = if ($slug) { "${board}_${threadId}_${slug}" } else { "${board}_${threadId}" }
+    $threadDir = Join-Path $archiveRoot $folderName
+}
+
+$imgDir = Join-Path $threadDir "images"
+New-Item -ItemType Directory -Path $imgDir -Force | Out-Null
 
 Write-Host "Found $($posts.Count) posts" -ForegroundColor Cyan
 
@@ -153,35 +169,54 @@ if ($skipped -gt 0) {
 }
 
 if ($pending.Count -gt 0) {
-    Write-Host "  Downloading $($pending.Count) files ($concurrency concurrent) ..." -ForegroundColor Cyan
+    $delayMsg = if ($DelayMs -gt 0) { ", ${DelayMs}ms delay" } else { "" }
+    Write-Host "  Downloading $($pending.Count) files ($Concurrency concurrent$delayMsg) ..." -ForegroundColor Cyan
 
-    $pool = [RunspaceFactory]::CreateRunspacePool(1, $concurrency)
+    $pool = [RunspaceFactory]::CreateRunspacePool(1, $Concurrency)
     $pool.Open()
 
     $downloadScript = {
-        param($Url, $Dest, $TimeoutSeconds)
-        try {
-            [Void][System.Reflection.Assembly]::LoadWithPartialName("System.Net.Http")
-            $client = New-Object System.Net.Http.HttpClient
-            if ($TimeoutSeconds -gt 0) {
-                $client.Timeout = [System.TimeSpan]::FromSeconds($TimeoutSeconds)
-            }
-            $client.DefaultRequestHeaders.UserAgent.ParseAdd("4chan-archiver/1.0")
-            
-            $response = $client.GetAsync($Url).GetAwaiter().GetResult()
-            if (-not $response.IsSuccessStatusCode) {
+        param($Url, $Dest, $TimeoutSeconds, $DelayMs)
+        if ($DelayMs -gt 0) {
+            Start-Sleep -Milliseconds $DelayMs
+        }
+        $maxTries = 3
+        $try = 1
+        while ($try -le $maxTries) {
+            try {
+                [Void][System.Reflection.Assembly]::LoadWithPartialName("System.Net.Http")
+                $client = New-Object System.Net.Http.HttpClient
+                if ($TimeoutSeconds -gt 0) {
+                    $client.Timeout = [System.TimeSpan]::FromSeconds($TimeoutSeconds)
+                }
+                $client.DefaultRequestHeaders.UserAgent.ParseAdd("4chan-archiver/1.1")
+                
+                $response = $client.GetAsync($Url).GetAwaiter().GetResult()
+                if (-not $response.IsSuccessStatusCode) {
+                    $statusCode = [int]$response.StatusCode
+                    $client.Dispose()
+                    if (($statusCode -eq 429 -or $statusCode -ge 500) -and $try -lt $maxTries) {
+                        Start-Sleep -Milliseconds ($try * 1000)
+                        $try++
+                        continue
+                    }
+                    return @{ Success = $false; Error = "HTTP $statusCode" }
+                }
+                $stream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+                $fileStream = New-Object System.IO.FileStream($Dest, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+                $stream.CopyTo($fileStream)
+                $fileStream.Dispose()
+                $stream.Dispose()
                 $client.Dispose()
-                return @{ Success = $false; Error = "HTTP $($response.StatusCode)" }
+                return @{ Success = $true }
+            } catch {
+                if ($try -lt $maxTries) {
+                    Start-Sleep -Milliseconds ($try * 1000)
+                    $try++
+                } else {
+                    return @{ Success = $false; Error = $_.Exception.Message }
+                }
             }
-            $stream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
-            $fileStream = New-Object System.IO.FileStream($Dest, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
-            $stream.CopyTo($fileStream)
-            $fileStream.Dispose()
-            $stream.Dispose()
-            $client.Dispose()
-            return @{ Success = $true }
-        } catch {
-            return @{ Success = $false; Error = $_.Exception.Message }
         }
     }
 
@@ -192,7 +227,7 @@ if ($pending.Count -gt 0) {
 
     try {
         foreach ($task in $pending) {
-            $ps = [PowerShell]::Create().AddScript($downloadScript).AddArgument($task.Url).AddArgument($task.Dest).AddArgument(30)
+            $ps = [PowerShell]::Create().AddScript($downloadScript).AddArgument($task.Url).AddArgument($task.Dest).AddArgument(30).AddArgument($DelayMs)
             $ps.RunspacePool = $pool
 
             [void]$runspaces.Add(@{
@@ -200,6 +235,10 @@ if ($pending.Count -gt 0) {
                 Handle = $ps.BeginInvoke()
                 Task   = $task
             })
+
+            if ($DelayMs -gt 0) {
+                Start-Sleep -Milliseconds $DelayMs
+            }
         }
 
         while ($runspaces.Count -gt 0) {
@@ -255,7 +294,8 @@ $jsonPath = Join-Path $threadDir "thread.json"
 # --- Generate HTML by delegating to update-html.ps1 ---
 Write-Host "Generating HTML ..." -ForegroundColor Cyan
 try {
-    & "$PSScriptRoot\update-html.ps1" -ArchiveName "${board}_${threadId}"
+    $archiveName = Split-Path $threadDir -Leaf
+    & "$PSScriptRoot\update-html.ps1" -ArchiveName $archiveName
 } catch {
     Write-Host "ERROR: Failed to generate HTML: $($_.Exception.Message)" -ForegroundColor Red
 }
@@ -280,3 +320,4 @@ if ($failedImages.Count -gt 0) {
 }
 
 Write-Host "`nOpen thread.html in your browser to view the archive." -ForegroundColor Cyan
+
